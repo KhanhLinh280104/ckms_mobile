@@ -10,7 +10,9 @@ class ApiService {
   // Using 10.0.2.2 for Android Emulator to connect to localhost, and localhost for other platforms.
   static final String _baseUrl = kIsWeb
       ? ''
-      : (Platform.isAndroid ? 'http://10.0.2.2:8080/api/v1' : 'http://localhost:8080/api/v1');
+      : (Platform.isAndroid
+            ? 'http://192.168.2.23:8080/api/v1'
+            : 'http://localhost:8080/api/v1');
 
   // Cache of the currently logged-in user
   static UserModel? currentUser;
@@ -30,26 +32,29 @@ class ApiService {
 
     try {
       isOfflineMockMode = false;
-      
+
       final url = Uri.parse('$_baseUrl/auth/login');
       debugPrint("Connecting to API: $url");
-      
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': cleanUsername,
-          'password': cleanPassword,
-        }),
-      ).timeout(const Duration(seconds: 5));
+
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': cleanUsername,
+              'password': cleanPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> body = jsonDecode(response.body);
-        final data = body['data'] ?? body;
+        final Map<String, dynamic> data = jsonDecode(response.body);
         final token = data['accessToken'] ?? data['token'];
 
         if (token == null) {
-          throw Exception("Không tìm thấy Access Token từ phản hồi của máy chủ");
+          throw Exception(
+            "Không tìm thấy Access Token từ phản hồi của máy chủ",
+          );
         }
 
         final decodedPayload = JwtParser.parse(token);
@@ -62,8 +67,10 @@ class ApiService {
           decodedJwt: decodedPayload,
           token: token,
         );
-        
-        debugPrint("Logged in successfully via API. User: ${currentUser!.name}, Role: ${currentUser!.role}");
+
+        debugPrint(
+          "Logged in successfully via API. User: ${currentUser!.name}, Role: ${currentUser!.role}",
+        );
         return currentUser!;
       } else {
         // Parse error message if available
@@ -76,10 +83,14 @@ class ApiService {
       }
     } catch (e) {
       debugPrint("API login failed with error: $e");
-      
+
       // If error is network-related (e.g. Server down, timeout, SocketException), try mock login fallback
-      if (e is SocketException || e is http.ClientException || e.toString().contains("timeout")) {
-        debugPrint("Network issues detected. Falling back to local offline mock authentication...");
+      if (e is SocketException ||
+          e is http.ClientException ||
+          e.toString().contains("timeout")) {
+        debugPrint(
+          "Network issues detected. Falling back to local offline mock authentication...",
+        );
         return _tryMockLogin(cleanUsername, cleanPassword);
       } else {
         rethrow;
@@ -91,17 +102,45 @@ class ApiService {
   static UserModel _tryMockLogin(String username, String password) {
     // Standard mock accounts mapping
     final mockAccounts = {
-      'admin': {'pass': 'admin123', 'name': 'Nguyễn Quản Trị', 'role': 'ADMIN', 'email': 'admin@ckms.com'},
-      'coordinator': {'pass': 'coord123', 'name': 'Trần Điều Phối', 'role': 'COORDINATOR', 'email': 'coordinator@ckms.com'},
-      'kitchen': {'pass': 'kitchen123', 'name': 'Lê Nhân Viên Bếp', 'role': 'KITCHEN_STAFF', 'email': 'kitchen@ckms.com'},
-      'store': {'pass': 'store123', 'name': 'Phạm Nhân Viên Cửa Hàng', 'role': 'STORE_STAFF', 'email': 'store@ckms.com', 'storeId': 1, 'storeName': 'Cửa hàng Quận 1'},
-      'manager': {'pass': 'manager123', 'name': 'Hoàng Quản Lý Phân Phối', 'role': 'MANAGER', 'email': 'manager@ckms.com'},
+      'admin': {
+        'pass': 'admin123',
+        'name': 'Nguyễn Quản Trị',
+        'role': 'ADMIN',
+        'email': 'admin@ckms.com',
+      },
+      'coordinator': {
+        'pass': 'coord123',
+        'name': 'Trần Điều Phối',
+        'role': 'COORDINATOR',
+        'email': 'coordinator@ckms.com',
+      },
+      'kitchen': {
+        'pass': 'kitchen123',
+        'name': 'Lê Nhân Viên Bếp',
+        'role': 'KITCHEN_STAFF',
+        'email': 'kitchen@ckms.com',
+      },
+      'store': {
+        'pass': 'store123',
+        'name': 'Phạm Nhân Viên Cửa Hàng',
+        'role': 'STORE_STAFF',
+        'email': 'store@ckms.com',
+        'storeId': 1,
+        'storeName': 'Cửa hàng Quận 1',
+      },
+      'manager': {
+        'pass': 'manager123',
+        'name': 'Hoàng Quản Lý Phân Phối',
+        'role': 'MANAGER',
+        'email': 'manager@ckms.com',
+      },
     };
 
     final lowerUser = username.toLowerCase();
-    if (mockAccounts.containsKey(lowerUser) && mockAccounts[lowerUser]!['pass'] == password) {
+    if (mockAccounts.containsKey(lowerUser) &&
+        mockAccounts[lowerUser]!['pass'] == password) {
       final mockData = mockAccounts[lowerUser]!;
-      
+
       isOfflineMockMode = true;
       currentUser = UserModel(
         id: 'mock-user-id-${mockData['role']}',
@@ -112,14 +151,20 @@ class ApiService {
         storeId: mockData['storeId'] as int?,
         storeName: mockData['storeName'] as String?,
         kitchenId: mockData['role'] == 'KITCHEN_STAFF' ? 1 : null,
-        kitchenName: mockData['role'] == 'KITCHEN_STAFF' ? 'Bếp trung tâm số 1' : null,
+        kitchenName: mockData['role'] == 'KITCHEN_STAFF'
+            ? 'Bếp trung tâm số 1'
+            : null,
         authorities: ['ROLE_${mockData['role']}', 'VIEW_DASHBOARD'],
       );
-      
-      debugPrint("Offline Login Success: ${currentUser!.name} as ${currentUser!.role}");
+
+      debugPrint(
+        "Offline Login Success: ${currentUser!.name} as ${currentUser!.role}",
+      );
       return currentUser!;
     } else {
-      throw Exception("Tên đăng nhập hoặc mật khẩu không chính xác (Đang ở chế độ Offline/Demo)");
+      throw Exception(
+        "Tên đăng nhập hoặc mật khẩu không chính xác (Đang ở chế độ Offline/Demo)",
+      );
     }
   }
 
@@ -131,11 +176,13 @@ class ApiService {
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/auth/forgot-password'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email.trim()}),
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/forgot-password'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email.trim()}),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (_) {
@@ -167,10 +214,12 @@ class ApiService {
       // 1. Fetch Store Stats (Admin, Coordinator)
       if (currentUser!.role == 'ADMIN' || currentUser!.role == 'COORDINATOR') {
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/stores?size=1'), headers: headers);
+          final res = await http.get(
+            Uri.parse('$_baseUrl/stores?size=1'),
+            headers: headers,
+          );
           if (res.statusCode == 200) {
-            final body = jsonDecode(res.body);
-            final page = body['data'] ?? body;
+            final page = jsonDecode(res.body);
             stats['activeStores'] = page['totalElements'] ?? 0;
           }
         } catch (_) {}
@@ -179,20 +228,28 @@ class ApiService {
       // 2. Fetch User Stats (Admin only)
       if (currentUser!.role == 'ADMIN') {
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/users?size=1'), headers: headers);
+          final res = await http.get(
+            Uri.parse('$_baseUrl/users?size=1'),
+            headers: headers,
+          );
           if (res.statusCode == 200) {
-            final body = jsonDecode(res.body);
-            final page = body['data'] ?? body;
+            final page = jsonDecode(res.body);
             stats['activeUsers'] = page['totalElements'] ?? 0;
           }
         } catch (_) {}
       }
 
       // 3. Fetch Orders (Coordinator: All orders, Store staff / Manager: My orders)
-      if (currentUser!.role != 'KITCHEN_STAFF' && currentUser!.role != 'ADMIN') {
+      if (currentUser!.role != 'KITCHEN_STAFF' &&
+          currentUser!.role != 'ADMIN') {
         try {
-          final endpoint = currentUser!.role == 'COORDINATOR' ? '/orders' : '/orders/my';
-          final res = await http.get(Uri.parse('$_baseUrl$endpoint?size=1'), headers: headers);
+          final endpoint = currentUser!.role == 'COORDINATOR'
+              ? '/orders'
+              : '/orders/my';
+          final res = await http.get(
+            Uri.parse('$_baseUrl$endpoint?size=1'),
+            headers: headers,
+          );
           if (res.statusCode == 200) {
             final page = jsonDecode(res.body);
             stats['pendingOrders'] = page['totalElements'] ?? 0;
@@ -201,21 +258,28 @@ class ApiService {
       }
 
       // 4. Fetch Shipments (Coordinator, Kitchen)
-      if (currentUser!.role == 'COORDINATOR' || currentUser!.role == 'KITCHEN_STAFF') {
+      if (currentUser!.role == 'COORDINATOR' ||
+          currentUser!.role == 'KITCHEN_STAFF') {
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/shipments?size=1'), headers: headers);
+          final res = await http.get(
+            Uri.parse('$_baseUrl/shipments?size=1'),
+            headers: headers,
+          );
           if (res.statusCode == 200) {
-            final body = jsonDecode(res.body);
-            final page = body['data'] ?? body;
+            final page = jsonDecode(res.body);
             stats['pendingShipments'] = page['totalElements'] ?? 0;
           }
         } catch (_) {}
       }
 
       // 5. Fetch Production Plans (Coordinator, Kitchen Staff)
-      if (currentUser!.role == 'COORDINATOR' || currentUser!.role == 'KITCHEN_STAFF') {
+      if (currentUser!.role == 'COORDINATOR' ||
+          currentUser!.role == 'KITCHEN_STAFF') {
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/production-plans?size=1'), headers: headers);
+          final res = await http.get(
+            Uri.parse('$_baseUrl/production-plans?size=1'),
+            headers: headers,
+          );
           if (res.statusCode == 200) {
             final page = jsonDecode(res.body);
             stats['productionPlans'] = page['totalElements'] ?? 0;
@@ -226,7 +290,9 @@ class ApiService {
       // Make sure we have defaults for missing role fields to avoid null errors on UI
       return _fillMissingStats(stats, currentUser!.role);
     } catch (e) {
-      debugPrint("Failed to fetch dashboard stats from API: $e. Falling back to mock.");
+      debugPrint(
+        "Failed to fetch dashboard stats from API: $e. Falling back to mock.",
+      );
       return _getMockStatsForRole(currentUser!.role);
     }
   }
@@ -248,42 +314,61 @@ class ApiService {
     try {
       // 1. For Kitchen Staff -> Fetch shipments
       if (currentUser!.role == 'KITCHEN_STAFF') {
-        final res = await http.get(Uri.parse('$_baseUrl/shipments?size=5&page=0'), headers: headers);
-        if (res.statusCode == 200) {
-          final body = jsonDecode(res.body);
-          final page = body['data'] ?? body;
-          final List content = page['content'] ?? [];
-          return content.map<Map<String, dynamic>>((s) => {
-            'type': 'SHIPMENT',
-            'id': s['shipmentId'] ?? s['id'],
-            'title': 'Chuyến xe: TRK-${s['shipmentId'] ?? s['id']}',
-            'subtitle': s['storeName'] ?? 'Cửa hàng #${s['storeId'] ?? ""}',
-            'status': s['status'] ?? 'PENDING',
-          }).toList();
-        }
-      }
-      
-      // 2. For Coordinator, Store Staff, Manager -> Fetch orders
-      if (currentUser!.role != 'ADMIN') {
-        final endpoint = currentUser!.role == 'COORDINATOR' ? '/orders' : '/orders/my';
-        final res = await http.get(Uri.parse('$_baseUrl$endpoint?size=5&page=0'), headers: headers);
+        final res = await http.get(
+          Uri.parse('$_baseUrl/shipments?size=5&page=0'),
+          headers: headers,
+        );
         if (res.statusCode == 200) {
           final page = jsonDecode(res.body);
           final List content = page['content'] ?? [];
-          return content.map<Map<String, dynamic>>((o) => {
-            'type': 'ORDER',
-            'id': o['orderId'] ?? o['id'],
-            'title': 'Mã ĐH: #${o['orderId'] ?? o['id']}',
-            'subtitle': o['storeName'] ?? 'Cửa hàng #${o['storeId'] ?? ""}',
-            'status': o['status'] ?? 'PENDING',
-          }).toList();
+          return content
+              .map<Map<String, dynamic>>(
+                (s) => {
+                  'type': 'SHIPMENT',
+                  'id': s['shipmentId'] ?? s['id'],
+                  'title': 'Chuyến xe: TRK-${s['shipmentId'] ?? s['id']}',
+                  'subtitle':
+                      s['storeName'] ?? 'Cửa hàng #${s['storeId'] ?? ""}',
+                  'status': s['status'] ?? 'PENDING',
+                },
+              )
+              .toList();
+        }
+      }
+
+      // 2. For Coordinator, Store Staff, Manager -> Fetch orders
+      if (currentUser!.role != 'ADMIN') {
+        final endpoint = currentUser!.role == 'COORDINATOR'
+            ? '/orders'
+            : '/orders/my';
+        final res = await http.get(
+          Uri.parse('$_baseUrl$endpoint?size=5&page=0'),
+          headers: headers,
+        );
+        if (res.statusCode == 200) {
+          final page = jsonDecode(res.body);
+          final List content = page['content'] ?? [];
+          return content
+              .map<Map<String, dynamic>>(
+                (o) => {
+                  'type': 'ORDER',
+                  'id': o['orderId'] ?? o['id'],
+                  'title': 'Mã ĐH: #${o['orderId'] ?? o['id']}',
+                  'subtitle':
+                      o['storeName'] ?? 'Cửa hàng #${o['storeId'] ?? ""}',
+                  'status': o['status'] ?? 'PENDING',
+                },
+              )
+              .toList();
         }
       }
 
       // Admin has no specific activities to show, we can show a general mock list or empty
       return _getMockActivitiesForRole(currentUser!.role);
     } catch (e) {
-      debugPrint("Failed to fetch recent activities from API: $e. Falling back to mock.");
+      debugPrint(
+        "Failed to fetch recent activities from API: $e. Falling back to mock.",
+      );
       return _getMockActivitiesForRole(currentUser!.role);
     }
   }
@@ -292,58 +377,332 @@ class ApiService {
 
   // Keep a local in-memory list of mock users so that adding a user actually persists during the session!
   static final List<Map<String, dynamic>> _mockUsers = [
-    {'userId': 1, 'username': 'admin', 'email': 'admin@ckms.com', 'fullName': 'Nguyễn Quản Trị', 'roleName': 'ADMIN', 'isActive': true, 'status': 'ACTIVE'},
-    {'userId': 2, 'username': 'coordinator', 'email': 'coordinator@ckms.com', 'fullName': 'Trần Điều Phối', 'roleName': 'COORDINATOR', 'isActive': true, 'status': 'ACTIVE'},
-    {'userId': 3, 'username': 'kitchen', 'email': 'kitchen@ckms.com', 'fullName': 'Lê Nhân Viên Bếp', 'roleName': 'KITCHEN_STAFF', 'isActive': true, 'status': 'ACTIVE', 'kitchenName': 'Bếp trung tâm số 1', 'kitchenId': 1},
-    {'userId': 4, 'username': 'store', 'email': 'store@ckms.com', 'fullName': 'Phạm Nhân Viên Cửa Hàng', 'roleName': 'STORE_STAFF', 'isActive': true, 'status': 'ACTIVE', 'storeName': 'Cửa hàng Quận 1', 'storeId': 1},
-    {'userId': 5, 'username': 'manager', 'email': 'manager@ckms.com', 'fullName': 'Hoàng Quản Lý Phân Phối', 'roleName': 'MANAGER', 'isActive': true, 'status': 'ACTIVE'},
+    {
+      'userId': 1,
+      'username': 'admin',
+      'email': 'admin@ckms.com',
+      'fullName': 'Nguyễn Quản Trị',
+      'roleName': 'ADMIN',
+      'isActive': true,
+      'status': 'ACTIVE',
+    },
+    {
+      'userId': 2,
+      'username': 'coordinator',
+      'email': 'coordinator@ckms.com',
+      'fullName': 'Trần Điều Phối',
+      'roleName': 'COORDINATOR',
+      'isActive': true,
+      'status': 'ACTIVE',
+    },
+    {
+      'userId': 3,
+      'username': 'kitchen',
+      'email': 'kitchen@ckms.com',
+      'fullName': 'Lê Nhân Viên Bếp',
+      'roleName': 'KITCHEN_STAFF',
+      'isActive': true,
+      'status': 'ACTIVE',
+      'kitchenName': 'Bếp trung tâm số 1',
+      'kitchenId': 1,
+    },
+    {
+      'userId': 4,
+      'username': 'store',
+      'email': 'store@ckms.com',
+      'fullName': 'Phạm Nhân Viên Cửa Hàng',
+      'roleName': 'STORE_STAFF',
+      'isActive': true,
+      'status': 'ACTIVE',
+      'storeName': 'Cửa hàng Quận 1',
+      'storeId': 1,
+    },
+    {
+      'userId': 5,
+      'username': 'manager',
+      'email': 'manager@ckms.com',
+      'fullName': 'Hoàng Quản Lý Phân Phối',
+      'roleName': 'MANAGER',
+      'isActive': true,
+      'status': 'ACTIVE',
+    },
   ];
 
   static final List<Map<String, dynamic>> _mockStoresList = [
-    {'id': 1, 'storeId': 1, 'name': 'Cửa hàng Quận 1', 'address': '120 Lê Lợi, Bến Thành, Quận 1, TP. HCM', 'phone': '0901111111', 'email': 'q1@steakchain.vn', 'isActive': true, 'paymentCycle': 'MONTHLY', 'latitude': 10.7725, 'longitude': 106.6980},
-    {'id': 2, 'storeId': 2, 'name': 'Chi nhánh Quận 3', 'address': '72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. HCM', 'phone': '0902222222', 'email': 'q3@steakchain.vn', 'isActive': true, 'paymentCycle': 'WEEKLY', 'latitude': 10.7782, 'longitude': 106.7021},
-    {'id': 3, 'storeId': 3, 'name': 'Chi nhánh Bình Thạnh', 'address': '268 Lý Thường Kiệt, Quận 10, TP. HCM', 'phone': '0903333333', 'email': 'bt@steakchain.vn', 'isActive': true, 'paymentCycle': 'MONTHLY', 'latitude': 10.7735, 'longitude': 106.6601},
-    {'id': 4, 'storeId': 4, 'name': 'Chi nhánh Quận 7', 'address': '10 Huỳnh Tấn Phát, Tân Thuận Đông, Quận 7, TP. HCM', 'phone': '0904444444', 'email': 'q7@steakchain.vn', 'isActive': true, 'paymentCycle': 'MONTHLY', 'latitude': 10.7410, 'longitude': 106.7230},
-    {'id': 5, 'storeId': 5, 'name': 'Chi nhánh Thủ Đức', 'address': '1 Võ Văn Ngân, Linh Chiểu, Thủ Đức, TP. HCM', 'phone': '0905555555', 'email': 'td@steakchain.vn', 'isActive': true, 'paymentCycle': 'QUARTERLY', 'latitude': 10.8510, 'longitude': 106.7720},
+    {
+      'id': 1,
+      'storeId': 1,
+      'name': 'Cửa hàng Quận 1',
+      'address': '120 Lê Lợi, Bến Thành, Quận 1, TP. HCM',
+      'phone': '0901111111',
+      'email': 'q1@steakchain.vn',
+      'isActive': true,
+      'paymentCycle': 'MONTHLY',
+      'latitude': 10.7725,
+      'longitude': 106.6980,
+    },
+    {
+      'id': 2,
+      'storeId': 2,
+      'name': 'Chi nhánh Quận 3',
+      'address': '72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP. HCM',
+      'phone': '0902222222',
+      'email': 'q3@steakchain.vn',
+      'isActive': true,
+      'paymentCycle': 'WEEKLY',
+      'latitude': 10.7782,
+      'longitude': 106.7021,
+    },
+    {
+      'id': 3,
+      'storeId': 3,
+      'name': 'Chi nhánh Bình Thạnh',
+      'address': '268 Lý Thường Kiệt, Quận 10, TP. HCM',
+      'phone': '0903333333',
+      'email': 'bt@steakchain.vn',
+      'isActive': true,
+      'paymentCycle': 'MONTHLY',
+      'latitude': 10.7735,
+      'longitude': 106.6601,
+    },
+    {
+      'id': 4,
+      'storeId': 4,
+      'name': 'Chi nhánh Quận 7',
+      'address': '10 Huỳnh Tấn Phát, Tân Thuận Đông, Quận 7, TP. HCM',
+      'phone': '0904444444',
+      'email': 'q7@steakchain.vn',
+      'isActive': true,
+      'paymentCycle': 'MONTHLY',
+      'latitude': 10.7410,
+      'longitude': 106.7230,
+    },
+    {
+      'id': 5,
+      'storeId': 5,
+      'name': 'Chi nhánh Thủ Đức',
+      'address': '1 Võ Văn Ngân, Linh Chiểu, Thủ Đức, TP. HCM',
+      'phone': '0905555555',
+      'email': 'td@steakchain.vn',
+      'isActive': true,
+      'paymentCycle': 'QUARTERLY',
+      'latitude': 10.8510,
+      'longitude': 106.7720,
+    },
   ];
 
   static final List<Map<String, dynamic>> _mockKitchensList = [
-    {'kitchenId': 1, 'kitchenName': 'Bếp trung tâm số 1', 'address': '288 Nguyễn Văn Cừ, Quận 5, TP. HCM', 'maxDailyCapacity': 1000, 'isActive': true, 'latitude': 10.7629, 'longitude': 106.6822},
+    {
+      'kitchenId': 1,
+      'kitchenName': 'Bếp trung tâm số 1',
+      'address': '288 Nguyễn Văn Cừ, Quận 5, TP. HCM',
+      'maxDailyCapacity': 1000,
+      'isActive': true,
+      'latitude': 10.7629,
+      'longitude': 106.6822,
+    },
   ];
 
   static final List<Map<String, dynamic>> _mockProducts = [
-    {'id': 1, 'name': 'Steak Bò Mỹ (Premium)', 'description': 'Bò Mỹ nhập khẩu nguyên miếng nướng vừa', 'price': 249000, 'unit': 'Đĩa', 'category': {'id': 1, 'name': 'Món Chính', 'description': 'Món ăn chính'}, 'isActive': true},
-    {'id': 2, 'name': 'Salad Cá Hồi', 'description': 'Salad rau xanh kèm cá hồi áp chảo sốt chanh leo', 'price': 125000, 'unit': 'Đĩa', 'category': {'id': 2, 'name': 'Khai Vị', 'description': 'Khai vị nhẹ nhàng'}, 'isActive': true},
-    {'id': 3, 'name': 'Súp Kem Bí Đỏ', 'description': 'Súp bí đỏ sánh mịn cùng kem tươi Pháp', 'price': 75000, 'unit': 'Bát', 'category': {'id': 2, 'name': 'Khai Vị', 'description': 'Khai vị nhẹ nhàng'}, 'isActive': true},
-    {'id': 4, 'name': 'Pizza Hải Sản', 'description': 'Pizza đế mỏng nhân hải sản tươi tôm mực và phô mai kéo sợi', 'price': 189000, 'unit': 'Cái', 'category': {'id': 1, 'name': 'Món Chính', 'description': 'Món ăn chính'}, 'isActive': true},
-    {'id': 5, 'name': 'Bánh Mì Bơ Tỏi', 'description': 'Bánh mì nướng giòn rụm thơm bơ tỏi đặc trưng', 'price': 35000, 'unit': 'Cái', 'category': {'id': 3, 'name': 'Ăn Kèm', 'description': 'Món ăn phụ'}, 'isActive': true},
-    {'id': 6, 'name': 'Khoai Tây Chiên Truffle', 'description': 'Khoai tây cắt múi chiên giòn rắc muối truffle thơm lừng', 'price': 65000, 'unit': 'Đĩa', 'category': {'id': 3, 'name': 'Ăn Kèm', 'description': 'Món ăn phụ'}, 'isActive': true},
-    {'id': 7, 'name': 'Nước Ép Chanh Dây', 'description': 'Nước ép chanh dây chua ngọt tươi mát giải nhiệt', 'price': 40000, 'unit': 'Ly', 'category': {'id': 4, 'name': 'Đồ Uống', 'description': 'Nước giải khát'}, 'isActive': true},
+    {
+      'id': 1,
+      'name': 'Steak Bò Mỹ (Premium)',
+      'description': 'Bò Mỹ nhập khẩu nguyên miếng nướng vừa',
+      'price': 249000,
+      'unit': 'PIECE',
+      'category': {'id': 1, 'name': 'Món Chính', 'description': 'Món ăn chính'},
+      'isActive': true,
+    },
+    {
+      'id': 2,
+      'name': 'Salad Cá Hồi',
+      'description': 'Salad rau xanh kèm cá hồi áp chảo sốt chanh leo',
+      'price': 125000,
+      'unit': 'PIECE',
+      'category': {
+        'id': 2,
+        'name': 'Khai Vị',
+        'description': 'Khai vị nhẹ nhàng',
+      },
+      'isActive': true,
+    },
+    {
+      'id': 3,
+      'name': 'Súp Kem Bí Đỏ',
+      'description': 'Súp bí đỏ sánh mịn cùng kem tươi Pháp',
+      'price': 75000,
+      'unit': 'PIECE',
+      'category': {
+        'id': 2,
+        'name': 'Khai Vị',
+        'description': 'Khai vị nhẹ nhàng',
+      },
+      'isActive': true,
+    },
+    {
+      'id': 4,
+      'name': 'Pizza Hải Sản',
+      'description':
+          'Pizza đế mỏng nhân hải sản tươi tôm mực và phô mai kéo sợi',
+      'price': 189000,
+      'unit': 'PIECE',
+      'category': {'id': 1, 'name': 'Món Chính', 'description': 'Món ăn chính'},
+      'isActive': true,
+    },
+    {
+      'id': 5,
+      'name': 'Bánh Mì Bơ Tỏi',
+      'description': 'Bánh mì nướng giòn rụm thơm bơ tỏi đặc trưng',
+      'price': 35000,
+      'unit': 'PIECE',
+      'category': {'id': 3, 'name': 'Ăn Kèm', 'description': 'Món ăn phụ'},
+      'isActive': true,
+    },
+    {
+      'id': 6,
+      'name': 'Khoai Tây Chiên Truffle',
+      'description': 'Khoai tây cắt múi chiên giòn rắc muối truffle thơm lừng',
+      'price': 65000,
+      'unit': 'PIECE',
+      'category': {'id': 3, 'name': 'Ăn Kèm', 'description': 'Món ăn phụ'},
+      'isActive': true,
+    },
+    {
+      'id': 7,
+      'name': 'Nước Ép Chanh Dây',
+      'description': 'Nước ép chanh dây chua ngọt tươi mát giải nhiệt',
+      'price': 40000,
+      'unit': 'PIECE',
+      'category': {'id': 4, 'name': 'Đồ Uống', 'description': 'Nước giải khát'},
+      'isActive': true,
+    },
   ];
 
   static final List<Map<String, dynamic>> _mockBillingStatements = [
-    {'statementId': 2001, 'storeName': 'Cửa hàng Quận 1', 'storeId': 1, 'cycleName': 'Chu kỳ T7/2026', 'totalAmount': 18500000, 'status': 'ISSUED', 'issuedAt': '2026-07-14T08:00:00Z'},
-    {'statementId': 2002, 'storeName': 'Chi nhánh Quận 3', 'storeId': 2, 'cycleName': 'Chu kỳ T7/2026', 'totalAmount': 24200000, 'status': 'PAID', 'issuedAt': '2026-07-13T09:30:00Z'},
-    {'statementId': 2003, 'storeName': 'Cửa hàng Bình Thạnh', 'storeId': 3, 'cycleName': 'Chu kỳ T7/2026', 'totalAmount': 12000000, 'status': 'OVERDUE', 'issuedAt': '2026-07-05T10:00:00Z'},
-    {'statementId': 2004, 'storeName': 'Chi nhánh Quận 7', 'storeId': 4, 'cycleName': 'Chu kỳ Vừa qua', 'totalAmount': 31500000, 'status': 'PAID', 'issuedAt': '2026-06-15T08:00:00Z'},
-    {'statementId': 2005, 'storeName': 'Chi nhánh Thủ Đức', 'storeId': 5, 'cycleName': 'Chu kỳ T7/2026', 'totalAmount': 9500000, 'status': 'DRAFT', 'issuedAt': '2026-07-14T15:00:00Z'},
+    {
+      'statementId': 2001,
+      'storeName': 'Cửa hàng Quận 1',
+      'storeId': 1,
+      'cycleName': 'Chu kỳ T7/2026',
+      'totalAmount': 18500000,
+      'status': 'ISSUED',
+      'issuedAt': '2026-07-14T08:00:00Z',
+    },
+    {
+      'statementId': 2002,
+      'storeName': 'Chi nhánh Quận 3',
+      'storeId': 2,
+      'cycleName': 'Chu kỳ T7/2026',
+      'totalAmount': 24200000,
+      'status': 'PAID',
+      'issuedAt': '2026-07-13T09:30:00Z',
+    },
+    {
+      'statementId': 2003,
+      'storeName': 'Cửa hàng Bình Thạnh',
+      'storeId': 3,
+      'cycleName': 'Chu kỳ T7/2026',
+      'totalAmount': 12000000,
+      'status': 'OVERDUE',
+      'issuedAt': '2026-07-05T10:00:00Z',
+    },
+    {
+      'statementId': 2004,
+      'storeName': 'Chi nhánh Quận 7',
+      'storeId': 4,
+      'cycleName': 'Chu kỳ Vừa qua',
+      'totalAmount': 31500000,
+      'status': 'PAID',
+      'issuedAt': '2026-06-15T08:00:00Z',
+    },
+    {
+      'statementId': 2005,
+      'storeName': 'Chi nhánh Thủ Đức',
+      'storeId': 5,
+      'cycleName': 'Chu kỳ T7/2026',
+      'totalAmount': 9500000,
+      'status': 'DRAFT',
+      'issuedAt': '2026-07-14T15:00:00Z',
+    },
   ];
 
   static final List<Map<String, dynamic>> _mockCategoriesList = [
-    {'id': 1, 'name': 'Món Chính', 'description': 'Món ăn chính phục vụ tại bàn', 'status': 'ACTIVE'},
-    {'id': 2, 'name': 'Khai Vị', 'description': 'Món khai vị nhẹ nhàng kích thích vị giác', 'status': 'ACTIVE'},
-    {'id': 3, 'name': 'Ăn Kèm', 'description': 'Món phụ dùng kèm món chính', 'status': 'ACTIVE'},
-    {'id': 4, 'name': 'Đồ Uống', 'description': 'Các loại nước giải khát, rượu vang', 'status': 'ACTIVE'},
+    {
+      'id': 1,
+      'name': 'Món Chính',
+      'description': 'Món ăn chính phục vụ tại bàn',
+      'status': 'ACTIVE',
+    },
+    {
+      'id': 2,
+      'name': 'Khai Vị',
+      'description': 'Món khai vị nhẹ nhàng kích thích vị giác',
+      'status': 'ACTIVE',
+    },
+    {
+      'id': 3,
+      'name': 'Ăn Kèm',
+      'description': 'Món phụ dùng kèm món chính',
+      'status': 'ACTIVE',
+    },
+    {
+      'id': 4,
+      'name': 'Đồ Uống',
+      'description': 'Các loại nước giải khát, rượu vang',
+      'status': 'ACTIVE',
+    },
   ];
 
   static final List<Map<String, dynamic>> _mockMaterialsList = [
-    {'id': 1, 'name': 'Thịt Thăn Bò Mỹ', 'unit': 'KG', 'minStockLevel': 50, 'isActive': true},
-    {'id': 2, 'name': 'Cá Hồi Tươi', 'unit': 'KG', 'minStockLevel': 20, 'isActive': true},
-    {'id': 3, 'name': 'Kem Tươi Pháp', 'unit': 'LITER', 'minStockLevel': 10, 'isActive': true},
-    {'id': 4, 'name': 'Bột Mì Làm Bánh', 'unit': 'KG', 'minStockLevel': 100, 'isActive': true},
-    {'id': 5, 'name': 'Tỏi Lý Sơn', 'unit': 'KG', 'minStockLevel': 15, 'isActive': true},
-    {'id': 6, 'name': 'Khoai Tây Đông Lạnh', 'unit': 'KG', 'minStockLevel': 80, 'isActive': true},
-    {'id': 7, 'name': 'Chanh Dây Tươi', 'unit': 'KG', 'minStockLevel': 25, 'isActive': true},
+    {
+      'id': 1,
+      'name': 'Thịt Thăn Bò Mỹ',
+      'unit': 'KG',
+      'minStockLevel': 50,
+      'isActive': true,
+    },
+    {
+      'id': 2,
+      'name': 'Cá Hồi Tươi',
+      'unit': 'KG',
+      'minStockLevel': 20,
+      'isActive': true,
+    },
+    {
+      'id': 3,
+      'name': 'Kem Tươi Pháp',
+      'unit': 'LITER',
+      'minStockLevel': 10,
+      'isActive': true,
+    },
+    {
+      'id': 4,
+      'name': 'Bột Mì Làm Bánh',
+      'unit': 'KG',
+      'minStockLevel': 100,
+      'isActive': true,
+    },
+    {
+      'id': 5,
+      'name': 'Tỏi Lý Sơn',
+      'unit': 'KG',
+      'minStockLevel': 15,
+      'isActive': true,
+    },
+    {
+      'id': 6,
+      'name': 'Khoai Tây Đông Lạnh',
+      'unit': 'KG',
+      'minStockLevel': 80,
+      'isActive': true,
+    },
+    {
+      'id': 7,
+      'name': 'Chanh Dây Tươi',
+      'unit': 'KG',
+      'minStockLevel': 25,
+      'isActive': true,
+    },
   ];
 
   static final List<Map<String, dynamic>> _mockProductionPlans = [
@@ -354,9 +713,19 @@ class ApiService {
       'status': 'READY_TO_PRODUCE',
       'createdAt': '2026-07-14T07:00:00Z',
       'items': [
-        {'productId': 1, 'productName': 'Steak Bò Mỹ (Premium)', 'plannedQuantity': 50, 'unit': 'Đĩa'},
-        {'productId': 2, 'productName': 'Salad Cá Hồi', 'plannedQuantity': 30, 'unit': 'Đĩa'},
-      ]
+        {
+          'productId': 1,
+          'productName': 'Steak Bò Mỹ (Premium)',
+          'plannedQuantity': 50,
+          'unit': 'Đĩa',
+        },
+        {
+          'productId': 2,
+          'productName': 'Salad Cá Hồi',
+          'plannedQuantity': 30,
+          'unit': 'Đĩa',
+        },
+      ],
     },
     {
       'planId': 302,
@@ -365,9 +734,19 @@ class ApiService {
       'status': 'PRODUCING',
       'createdAt': '2026-07-14T09:00:00Z',
       'items': [
-        {'productId': 4, 'productName': 'Pizza Hải Sản', 'plannedQuantity': 40, 'unit': 'Cái'},
-        {'productId': 5, 'productName': 'Bánh Mì Bơ Tỏi', 'plannedQuantity': 60, 'unit': 'Cái'},
-      ]
+        {
+          'productId': 4,
+          'productName': 'Pizza Hải Sản',
+          'plannedQuantity': 40,
+          'unit': 'Cái',
+        },
+        {
+          'productId': 5,
+          'productName': 'Bánh Mì Bơ Tỏi',
+          'plannedQuantity': 60,
+          'unit': 'Cái',
+        },
+      ],
     },
     {
       'planId': 303,
@@ -376,9 +755,19 @@ class ApiService {
       'status': 'COMPLETED',
       'createdAt': '2026-07-13T11:00:00Z',
       'items': [
-        {'productId': 3, 'productName': 'Súp Kem Bí Đỏ', 'plannedQuantity': 25, 'unit': 'Bát'},
-        {'productId': 6, 'productName': 'Khoai Tây Chiên Truffle', 'plannedQuantity': 35, 'unit': 'Đĩa'},
-      ]
+        {
+          'productId': 3,
+          'productName': 'Súp Kem Bí Đỏ',
+          'plannedQuantity': 25,
+          'unit': 'Bát',
+        },
+        {
+          'productId': 6,
+          'productName': 'Khoai Tây Chiên Truffle',
+          'plannedQuantity': 35,
+          'unit': 'Đĩa',
+        },
+      ],
     },
   ];
 
@@ -393,7 +782,7 @@ class ApiService {
       'items': [
         {'name': 'Steak Bò Mỹ (Premium)', 'quantity': 10},
         {'name': 'Salad Cá Hồi', 'quantity': 5},
-      ]
+      ],
     },
     {
       'orderId': 5002,
@@ -405,7 +794,7 @@ class ApiService {
       'items': [
         {'name': 'Pizza Hải Sản', 'quantity': 15},
         {'name': 'Bánh Mì Bơ Tỏi', 'quantity': 20},
-      ]
+      ],
     },
     {
       'orderId': 5003,
@@ -417,7 +806,7 @@ class ApiService {
       'items': [
         {'name': 'Súp Kem Bí Đỏ', 'quantity': 8},
         {'name': 'Khoai Tây Chiên Truffle', 'quantity': 12},
-      ]
+      ],
     },
     {
       'orderId': 5004,
@@ -428,7 +817,7 @@ class ApiService {
       'orderDate': '2026-07-11T11:00:00Z',
       'items': [
         {'name': 'Nước Ép Chanh Dây', 'quantity': 10},
-      ]
+      ],
     },
     {
       'orderId': 5005,
@@ -439,7 +828,7 @@ class ApiService {
       'orderDate': '2026-07-14T09:00:00Z',
       'items': [
         {'name': 'Pizza Hải Sản', 'quantity': 10},
-      ]
+      ],
     },
     {
       'orderId': 5006,
@@ -450,7 +839,7 @@ class ApiService {
       'orderDate': '2026-07-14T09:15:00Z',
       'items': [
         {'name': 'Steak Bò Mỹ (Premium)', 'quantity': 10},
-      ]
+      ],
     },
     {
       'orderId': 5007,
@@ -461,7 +850,7 @@ class ApiService {
       'orderDate': '2026-07-13T10:00:00Z',
       'items': [
         {'name': 'Súp Kem Bí Đỏ', 'quantity': 10},
-      ]
+      ],
     },
   ];
 
@@ -477,8 +866,13 @@ class ApiService {
       'ahamoveServiceId': 'SGN-TRUCK-500',
       'createdAt': '2026-07-14T08:00:00Z',
       'stops': [
-        {'stopId': 1, 'storeId': 3, 'storeName': 'Chi nhánh Quận 3', 'storeOrderIds': [5002]}
-      ]
+        {
+          'stopId': 1,
+          'storeId': 3,
+          'storeName': 'Chi nhánh Quận 3',
+          'storeOrderIds': [5002],
+        },
+      ],
     },
     {
       'shipmentId': 102,
@@ -491,8 +885,13 @@ class ApiService {
       'ahamoveServiceId': 'SGN-BIKE',
       'createdAt': '2026-07-14T09:30:00Z',
       'stops': [
-        {'stopId': 2, 'storeId': 2, 'storeName': 'Chi nhánh Bình Thạnh', 'storeOrderIds': [5003]}
-      ]
+        {
+          'stopId': 2,
+          'storeId': 2,
+          'storeName': 'Chi nhánh Bình Thạnh',
+          'storeOrderIds': [5003],
+        },
+      ],
     },
     {
       'shipmentId': 103,
@@ -505,8 +904,13 @@ class ApiService {
       'ahamoveServiceId': 'SGN-TRUCK-1000',
       'createdAt': '2026-07-13T10:00:00Z',
       'stops': [
-        {'stopId': 3, 'storeId': 5, 'storeName': 'Chi nhánh Gò Vấp', 'storeOrderIds': [5004]}
-      ]
+        {
+          'stopId': 3,
+          'storeId': 5,
+          'storeName': 'Chi nhánh Gò Vấp',
+          'storeOrderIds': [5004],
+        },
+      ],
     },
     {
       'shipmentId': 104,
@@ -519,8 +923,13 @@ class ApiService {
       'ahamoveServiceId': 'SGN-BIKE',
       'createdAt': '2026-07-14T10:15:00Z',
       'stops': [
-        {'stopId': 4, 'storeId': 1, 'storeName': 'Cửa hàng Quận 1', 'storeOrderIds': [5001]}
-      ]
+        {
+          'stopId': 4,
+          'storeId': 1,
+          'storeName': 'Cửa hàng Quận 1',
+          'storeOrderIds': [5001],
+        },
+      ],
     },
     {
       'shipmentId': 105,
@@ -533,8 +942,13 @@ class ApiService {
       'ahamoveServiceId': 'SGN-BIKE',
       'createdAt': '2026-07-14T09:00:00Z',
       'stops': [
-        {'stopId': 5, 'storeId': 1, 'storeName': 'Cửa hàng Quận 1', 'storeOrderIds': [5005]}
-      ]
+        {
+          'stopId': 5,
+          'storeId': 1,
+          'storeName': 'Cửa hàng Quận 1',
+          'storeOrderIds': [5005],
+        },
+      ],
     },
     {
       'shipmentId': 106,
@@ -549,8 +963,13 @@ class ApiService {
       'ahamoveStatus': 'IN_TRANSIT',
       'createdAt': '2026-07-14T09:15:00Z',
       'stops': [
-        {'stopId': 6, 'storeId': 1, 'storeName': 'Cửa hàng Quận 1', 'storeOrderIds': [5006]}
-      ]
+        {
+          'stopId': 6,
+          'storeId': 1,
+          'storeName': 'Cửa hàng Quận 1',
+          'storeOrderIds': [5006],
+        },
+      ],
     },
     {
       'shipmentId': 107,
@@ -565,8 +984,13 @@ class ApiService {
       'ahamoveStatus': 'DELIVERED',
       'createdAt': '2026-07-13T10:00:00Z',
       'stops': [
-        {'stopId': 7, 'storeId': 1, 'storeName': 'Cửa hàng Quận 1', 'storeOrderIds': [5007]}
-      ]
+        {
+          'stopId': 7,
+          'storeId': 1,
+          'storeName': 'Cửa hàng Quận 1',
+          'storeOrderIds': [5007],
+        },
+      ],
     },
   ];
 
@@ -585,10 +1009,12 @@ class ApiService {
       if (search != null && search.isNotEmpty) {
         final query = search.toLowerCase();
         return _mockUsers
-            .where((u) =>
-                u['username'].toString().toLowerCase().contains(query) ||
-                u['fullName'].toString().toLowerCase().contains(query) ||
-                u['email'].toString().toLowerCase().contains(query))
+            .where(
+              (u) =>
+                  u['username'].toString().toLowerCase().contains(query) ||
+                  u['fullName'].toString().toLowerCase().contains(query) ||
+                  u['email'].toString().toLowerCase().contains(query),
+            )
             .toList();
       }
       return List.from(_mockUsers);
@@ -599,17 +1025,19 @@ class ApiService {
       if (search != null && search.isNotEmpty) {
         urlStr += '?search=${Uri.encodeComponent(search)}';
       }
-      
-      final res = await http.get(Uri.parse(urlStr), headers: _getAuthHeaders())
+
+      final res = await http
+          .get(Uri.parse(urlStr), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
-          
+
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final data = body['data'] ?? body;
+        final data = jsonDecode(res.body);
         final List content = data['content'] ?? [];
         return content.cast<Map<String, dynamic>>();
       }
-      throw Exception("Lấy danh sách người dùng thất bại (Mã lỗi: ${res.statusCode})");
+      throw Exception(
+        "Lấy danh sách người dùng thất bại (Mã lỗi: ${res.statusCode})",
+      );
     } catch (e) {
       debugPrint("API fetchUsers failed, using fallback mock users: $e");
       return fetchUsers(search: search);
@@ -617,24 +1045,31 @@ class ApiService {
   }
 
   /// Create a new user (roleId: 1 for ADMIN, etc.)
-  static Future<Map<String, dynamic>> createUser(Map<String, dynamic> userData) async {
+  static Future<Map<String, dynamic>> createUser(
+    Map<String, dynamic> userData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Map roleName from roleId
       final int roleId = userData['roleId'] ?? 0;
       String roleName = 'STORE_STAFF';
-      if (roleId == 1) roleName = 'ADMIN';
-      else if (roleId == 2) roleName = 'MANAGER';
-      else if (roleId == 3) roleName = 'COORDINATOR';
-      else if (roleId == 4) roleName = 'KITCHEN_STAFF';
-      else if (roleId == 5) roleName = 'STORE_STAFF';
+      if (roleId == 1)
+        roleName = 'ADMIN';
+      else if (roleId == 2)
+        roleName = 'MANAGER';
+      else if (roleId == 3)
+        roleName = 'COORDINATOR';
+      else if (roleId == 4)
+        roleName = 'KITCHEN_STAFF';
+      else if (roleId == 5)
+        roleName = 'STORE_STAFF';
 
       // Generate a mock user response
       final String email = userData['email'] ?? '';
       final String fullName = userData['fullName'] ?? 'Người dùng mới';
       final String username = email.split('@')[0];
-      
+
       final newUser = {
         'userId': _mockUsers.length + 1,
         'username': username,
@@ -644,30 +1079,34 @@ class ApiService {
         'isActive': true,
         'status': 'ACTIVE',
         if (userData['storeId'] != null) 'storeId': userData['storeId'],
-        if (userData['storeId'] != null) 'storeName': 'Chi nhánh #${userData['storeId']}',
+        if (userData['storeId'] != null)
+          'storeName': 'Chi nhánh #${userData['storeId']}',
         if (userData['kitchenId'] != null) 'kitchenId': userData['kitchenId'],
-        if (userData['kitchenId'] != null) 'kitchenName': 'Bếp #${userData['kitchenId']}',
+        if (userData['kitchenId'] != null)
+          'kitchenName': 'Bếp #${userData['kitchenId']}',
       };
-      
+
       _mockUsers.insert(0, newUser); // Add to local mock list (at beginning)
       return {
         'username': username,
         'email': email,
         'fullName': fullName,
-        'message': 'Khởi tạo tài khoản thành công! (Chế độ Demo)'
+        'message': 'Khởi tạo tài khoản thành công! (Chế độ Demo)',
       };
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/users'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(userData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/users'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(userData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
-        return (body['data'] ?? body) as Map<String, dynamic>;
+        return body as Map<String, dynamic>;
       } else {
         String errorMsg = "Tạo tài khoản thất bại";
         try {
@@ -684,15 +1123,21 @@ class ApiService {
   }
 
   /// Fetch products list
-  static Future<List<Map<String, dynamic>>> fetchProducts({String? search}) async {
+  static Future<List<Map<String, dynamic>>> fetchProducts({
+    String? search,
+  }) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       if (search != null && search.isNotEmpty) {
         final query = search.toLowerCase();
         return _mockProducts
-            .where((p) =>
-                p['name'].toString().toLowerCase().contains(query) ||
-                (p['description'] ?? '').toString().toLowerCase().contains(query))
+            .where(
+              (p) =>
+                  p['name'].toString().toLowerCase().contains(query) ||
+                  (p['description'] ?? '').toString().toLowerCase().contains(
+                    query,
+                  ),
+            )
             .toList();
       }
       return _mockProducts;
@@ -703,13 +1148,13 @@ class ApiService {
       if (search != null && search.isNotEmpty) {
         urlStr += '&search=${Uri.encodeComponent(search)}';
       }
-      
-      final res = await http.get(Uri.parse(urlStr), headers: _getAuthHeaders())
+
+      final res = await http
+          .get(Uri.parse(urlStr), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
-          
+
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final data = body['data'] ?? body;
+        final data = jsonDecode(res.body);
         final List content = data['content'] ?? [];
         return content.cast<Map<String, dynamic>>();
       }
@@ -721,12 +1166,19 @@ class ApiService {
   }
 
   /// Fetch billing statements (filtered by status)
-  static Future<List<Map<String, dynamic>>> fetchBillingStatements({String? status}) async {
+  static Future<List<Map<String, dynamic>>> fetchBillingStatements({
+    String? status,
+  }) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      if (status != null &&
+          status.isNotEmpty &&
+          status.toUpperCase() != 'ALL') {
         return _mockBillingStatements
-            .where((b) => b['status'].toString().toUpperCase() == status.toUpperCase())
+            .where(
+              (b) =>
+                  b['status'].toString().toUpperCase() == status.toUpperCase(),
+            )
             .toList();
       }
       return _mockBillingStatements;
@@ -734,16 +1186,18 @@ class ApiService {
 
     try {
       var urlStr = '$_baseUrl/billing-statements?size=100&page=0';
-      if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      if (status != null &&
+          status.isNotEmpty &&
+          status.toUpperCase() != 'ALL') {
         urlStr += '&status=${status.toUpperCase()}';
       }
-      
-      final res = await http.get(Uri.parse(urlStr), headers: _getAuthHeaders())
+
+      final res = await http
+          .get(Uri.parse(urlStr), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
-          
+
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final data = body['data'] ?? body;
+        final data = jsonDecode(res.body);
         final List content = data['content'] ?? [];
         return content.cast<Map<String, dynamic>>();
       }
@@ -767,11 +1221,11 @@ class ApiService {
     }
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/roles'), headers: _getAuthHeaders())
+      final res = await http
+          .get(Uri.parse('$_baseUrl/roles'), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final List list = body['data'] ?? body;
+        final list = jsonDecode(res.body);
         return list.cast<Map<String, dynamic>>();
       }
       throw Exception("Lấy danh sách vai trò thất bại");
@@ -794,11 +1248,14 @@ class ApiService {
     }
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/stores?size=100'), headers: _getAuthHeaders())
+      final res = await http
+          .get(
+            Uri.parse('$_baseUrl/stores?size=100'),
+            headers: _getAuthHeaders(),
+          )
           .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final data = body['data'] ?? body;
+        final data = jsonDecode(res.body);
         final List content = data['content'] ?? [];
         return content.cast<Map<String, dynamic>>();
       }
@@ -816,11 +1273,11 @@ class ApiService {
     }
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/kitchens'), headers: _getAuthHeaders())
+      final res = await http
+          .get(Uri.parse('$_baseUrl/kitchens'), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final List list = body['data'] ?? body;
+        final list = jsonDecode(res.body);
         return list.cast<Map<String, dynamic>>();
       }
       throw Exception("Lấy danh sách bếp thất bại");
@@ -832,12 +1289,19 @@ class ApiService {
   // --- New COORDINATOR APIs ---
 
   /// Fetch all system orders list
-  static Future<List<Map<String, dynamic>>> fetchOrdersList({String? status}) async {
+  static Future<List<Map<String, dynamic>>> fetchOrdersList({
+    String? status,
+  }) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      if (status != null &&
+          status.isNotEmpty &&
+          status.toUpperCase() != 'ALL') {
         return _mockOrders
-            .where((o) => o['status'].toString().toUpperCase() == status.toUpperCase())
+            .where(
+              (o) =>
+                  o['status'].toString().toUpperCase() == status.toUpperCase(),
+            )
             .toList();
       }
       return List.from(_mockOrders);
@@ -845,13 +1309,16 @@ class ApiService {
 
     try {
       var urlStr = '$_baseUrl/orders?size=100&page=0';
-      if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      if (status != null &&
+          status.isNotEmpty &&
+          status.toUpperCase() != 'ALL') {
         urlStr += '&status=${status.toUpperCase()}';
       }
-      
-      final res = await http.get(Uri.parse(urlStr), headers: _getAuthHeaders())
+
+      final res = await http
+          .get(Uri.parse(urlStr), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
-          
+
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final List content = body['content'] ?? [];
@@ -877,11 +1344,13 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/orders/$orderId/status'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode({'status': status.toUpperCase()}),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/orders/$orderId/status'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode({'status': status.toUpperCase()}),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -896,12 +1365,19 @@ class ApiService {
   }
 
   /// Fetch shipments list
-  static Future<List<Map<String, dynamic>>> fetchShipmentsList({String? status}) async {
+  static Future<List<Map<String, dynamic>>> fetchShipmentsList({
+    String? status,
+  }) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      if (status != null &&
+          status.isNotEmpty &&
+          status.toUpperCase() != 'ALL') {
         return _mockShipments
-            .where((s) => s['status'].toString().toUpperCase() == status.toUpperCase())
+            .where(
+              (s) =>
+                  s['status'].toString().toUpperCase() == status.toUpperCase(),
+            )
             .toList();
       }
       return List.from(_mockShipments);
@@ -909,16 +1385,18 @@ class ApiService {
 
     try {
       var urlStr = '$_baseUrl/shipments?size=100&page=0';
-      if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      if (status != null &&
+          status.isNotEmpty &&
+          status.toUpperCase() != 'ALL') {
         urlStr += '&status=${status.toUpperCase()}';
       }
-      
-      final res = await http.get(Uri.parse(urlStr), headers: _getAuthHeaders())
+
+      final res = await http
+          .get(Uri.parse(urlStr), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
-          
+
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final data = body['data'] ?? body;
+        final data = jsonDecode(res.body);
         final List content = data['content'] ?? [];
         return content.cast<Map<String, dynamic>>();
       }
@@ -930,13 +1408,15 @@ class ApiService {
   }
 
   /// Create a new shipment
-  static Future<Map<String, dynamic>> createShipment(Map<String, dynamic> shipmentData) async {
+  static Future<Map<String, dynamic>> createShipment(
+    Map<String, dynamic> shipmentData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       final int storeId = shipmentData['storeId'] ?? 1;
       final List orderIds = shipmentData['storeOrderIds'] ?? [];
-      
+
       // Update linked orders to ALLOCATED (or approved)
       for (final orderId in orderIds) {
         final idx = _mockOrders.indexWhere((o) => o['orderId'] == orderId);
@@ -956,8 +1436,13 @@ class ApiService {
         'ahamoveServiceId': shipmentData['ahamoveServiceId'] ?? 'SGN-BIKE',
         'createdAt': DateTime.now().toIso8601String(),
         'stops': [
-          {'stopId': _mockShipments.length + 1, 'storeId': storeId, 'storeName': shipmentData['storeName'] ?? 'Cửa hàng liên kết', 'storeOrderIds': orderIds}
-        ]
+          {
+            'stopId': _mockShipments.length + 1,
+            'storeId': storeId,
+            'storeName': shipmentData['storeName'] ?? 'Cửa hàng liên kết',
+            'storeOrderIds': orderIds,
+          },
+        ],
       };
 
       _mockShipments.insert(0, newShipment);
@@ -965,15 +1450,17 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/shipments'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(shipmentData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/shipments'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(shipmentData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
-        return (body['data'] ?? body) as Map<String, dynamic>;
+        return body as Map<String, dynamic>;
       } else {
         String errorMsg = "Tạo chuyến xe thất bại";
         try {
@@ -993,7 +1480,9 @@ class ApiService {
   static Future<bool> startShipmentTransit(int shipmentId) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 400));
-      final index = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      final index = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (index != -1) {
         _mockShipments[index]['status'] = 'IN_TRANSIT';
         return true;
@@ -1002,16 +1491,20 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/shipments/$shipmentId/transit'),
-        headers: _getAuthHeaders(),
-        body: null,
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/shipments/$shipmentId/transit'),
+            headers: _getAuthHeaders(),
+            body: null,
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
       debugPrint("API startShipmentTransit failed: $e. Falling back to mock.");
-      final index = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      final index = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (index != -1) {
         _mockShipments[index]['status'] = 'IN_TRANSIT';
         return true;
@@ -1039,37 +1532,54 @@ class ApiService {
   }
 
   /// Update central kitchen details
-  static Future<bool> updateKitchen(int kitchenId, Map<String, dynamic> kitchenData) async {
+  static Future<bool> updateKitchen(
+    int kitchenId,
+    Map<String, dynamic> kitchenData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      final index = _mockKitchensList.indexWhere((k) => k['kitchenId'] == kitchenId);
+      final index = _mockKitchensList.indexWhere(
+        (k) => k['kitchenId'] == kitchenId,
+      );
       if (index != -1) {
-        _mockKitchensList[index]['kitchenName'] = kitchenData['name'] ?? _mockKitchensList[index]['kitchenName'];
-        _mockKitchensList[index]['address'] = kitchenData['address'] ?? _mockKitchensList[index]['address'];
-        _mockKitchensList[index]['maxDailyCapacity'] = kitchenData['maxDailyCapacity'] ?? _mockKitchensList[index]['maxDailyCapacity'];
-        _mockKitchensList[index]['isActive'] = kitchenData['isActive'] ?? _mockKitchensList[index]['isActive'];
-        _mockKitchensList[index]['latitude'] = kitchenData['latitude'] ?? _mockKitchensList[index]['latitude'];
-        _mockKitchensList[index]['longitude'] = kitchenData['longitude'] ?? _mockKitchensList[index]['longitude'];
+        _mockKitchensList[index]['kitchenName'] =
+            kitchenData['name'] ?? _mockKitchensList[index]['kitchenName'];
+        _mockKitchensList[index]['address'] =
+            kitchenData['address'] ?? _mockKitchensList[index]['address'];
+        _mockKitchensList[index]['maxDailyCapacity'] =
+            kitchenData['maxDailyCapacity'] ??
+            _mockKitchensList[index]['maxDailyCapacity'];
+        _mockKitchensList[index]['isActive'] =
+            kitchenData['isActive'] ?? _mockKitchensList[index]['isActive'];
+        _mockKitchensList[index]['latitude'] =
+            kitchenData['latitude'] ?? _mockKitchensList[index]['latitude'];
+        _mockKitchensList[index]['longitude'] =
+            kitchenData['longitude'] ?? _mockKitchensList[index]['longitude'];
         return true;
       }
       return false;
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/kitchens/$kitchenId'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(kitchenData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/kitchens/$kitchenId'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(kitchenData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
       debugPrint("API updateKitchen failed: $e. Falling back to mock.");
-      final index = _mockKitchensList.indexWhere((k) => k['kitchenId'] == kitchenId);
+      final index = _mockKitchensList.indexWhere(
+        (k) => k['kitchenId'] == kitchenId,
+      );
       if (index != -1) {
         _mockKitchensList[index]['kitchenName'] = kitchenData['name'];
         _mockKitchensList[index]['address'] = kitchenData['address'];
-        _mockKitchensList[index]['maxDailyCapacity'] = kitchenData['maxDailyCapacity'];
+        _mockKitchensList[index]['maxDailyCapacity'] =
+            kitchenData['maxDailyCapacity'];
         _mockKitchensList[index]['isActive'] = kitchenData['isActive'];
         _mockKitchensList[index]['latitude'] = kitchenData['latitude'];
         _mockKitchensList[index]['longitude'] = kitchenData['longitude'];
@@ -1080,7 +1590,9 @@ class ApiService {
   }
 
   /// Create a new franchise store
-  static Future<Map<String, dynamic>> createStore(Map<String, dynamic> storeData) async {
+  static Future<Map<String, dynamic>> createStore(
+    Map<String, dynamic> storeData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final newId = _mockStoresList.length + 1;
@@ -1101,15 +1613,17 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/stores'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(storeData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/stores'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(storeData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
-        return (body['data'] ?? body) as Map<String, dynamic>;
+        return body as Map<String, dynamic>;
       } else {
         throw Exception("Không thể tạo cửa hàng");
       }
@@ -1121,35 +1635,52 @@ class ApiService {
   }
 
   /// Update franchise store
-  static Future<bool> updateStore(int storeId, Map<String, dynamic> storeData) async {
+  static Future<bool> updateStore(
+    int storeId,
+    Map<String, dynamic> storeData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      final index = _mockStoresList.indexWhere((s) => s['id'] == storeId || s['storeId'] == storeId);
+      final index = _mockStoresList.indexWhere(
+        (s) => s['id'] == storeId || s['storeId'] == storeId,
+      );
       if (index != -1) {
-        _mockStoresList[index]['name'] = storeData['name'] ?? _mockStoresList[index]['name'];
-        _mockStoresList[index]['address'] = storeData['address'] ?? _mockStoresList[index]['address'];
-        _mockStoresList[index]['phone'] = storeData['phone'] ?? _mockStoresList[index]['phone'];
-        _mockStoresList[index]['email'] = storeData['email'] ?? _mockStoresList[index]['email'];
-        _mockStoresList[index]['isActive'] = storeData['isActive'] ?? _mockStoresList[index]['isActive'];
-        _mockStoresList[index]['paymentCycle'] = storeData['paymentCycle'] ?? _mockStoresList[index]['paymentCycle'];
-        _mockStoresList[index]['latitude'] = storeData['latitude'] ?? _mockStoresList[index]['latitude'];
-        _mockStoresList[index]['longitude'] = storeData['longitude'] ?? _mockStoresList[index]['longitude'];
+        _mockStoresList[index]['name'] =
+            storeData['name'] ?? _mockStoresList[index]['name'];
+        _mockStoresList[index]['address'] =
+            storeData['address'] ?? _mockStoresList[index]['address'];
+        _mockStoresList[index]['phone'] =
+            storeData['phone'] ?? _mockStoresList[index]['phone'];
+        _mockStoresList[index]['email'] =
+            storeData['email'] ?? _mockStoresList[index]['email'];
+        _mockStoresList[index]['isActive'] =
+            storeData['isActive'] ?? _mockStoresList[index]['isActive'];
+        _mockStoresList[index]['paymentCycle'] =
+            storeData['paymentCycle'] ?? _mockStoresList[index]['paymentCycle'];
+        _mockStoresList[index]['latitude'] =
+            storeData['latitude'] ?? _mockStoresList[index]['latitude'];
+        _mockStoresList[index]['longitude'] =
+            storeData['longitude'] ?? _mockStoresList[index]['longitude'];
         return true;
       }
       return false;
     }
 
     try {
-      final res = await http.put(
-        Uri.parse('$_baseUrl/stores/$storeId'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(storeData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .put(
+            Uri.parse('$_baseUrl/stores/$storeId'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(storeData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
       debugPrint("API updateStore failed: $e. Falling back to mock.");
-      final index = _mockStoresList.indexWhere((s) => s['id'] == storeId || s['storeId'] == storeId);
+      final index = _mockStoresList.indexWhere(
+        (s) => s['id'] == storeId || s['storeId'] == storeId,
+      );
       if (index != -1) {
         _mockStoresList[index]['name'] = storeData['name'];
         _mockStoresList[index]['address'] = storeData['address'];
@@ -1166,14 +1697,18 @@ class ApiService {
   }
 
   /// Generate batch billing statements
-  static Future<Map<String, dynamic>> generateBatchBilling(Map<String, dynamic> batchData) async {
+  static Future<Map<String, dynamic>> generateBatchBilling(
+    Map<String, dynamic> batchData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 800));
-      
+
       final cycle = batchData['cycleName'] ?? 'Chu kỳ T7/2026';
       int count = 0;
       for (final s in _mockStoresList) {
-        final existingIdx = _mockBillingStatements.indexWhere((b) => b['storeId'] == s['id'] && b['cycleName'] == cycle);
+        final existingIdx = _mockBillingStatements.indexWhere(
+          (b) => b['storeId'] == s['id'] && b['cycleName'] == cycle,
+        );
         if (existingIdx == -1) {
           final newInvoiceId = _mockBillingStatements.length + 2001;
           _mockBillingStatements.add({
@@ -1199,11 +1734,13 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/billing-statements/generate/batch'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(batchData),
-      ).timeout(const Duration(seconds: 10));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/billing-statements/generate/batch'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(batchData),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         return jsonDecode(res.body) as Map<String, dynamic>;
@@ -1218,10 +1755,15 @@ class ApiService {
   }
 
   /// Update single billing statement status
-  static Future<bool> updateBillingStatementStatus(int statementId, String status) async {
+  static Future<bool> updateBillingStatementStatus(
+    int statementId,
+    String status,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      final idx = _mockBillingStatements.indexWhere((b) => b['statementId'] == statementId);
+      final idx = _mockBillingStatements.indexWhere(
+        (b) => b['statementId'] == statementId,
+      );
       if (idx != -1) {
         _mockBillingStatements[idx]['status'] = status.toUpperCase();
         return true;
@@ -1230,16 +1772,28 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/billing-statements/$statementId/status'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode({'status': status.toUpperCase()}),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/billing-statements/$statementId/pay'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode({
+              'paymentMethodId': 1,
+              'transactionReference':
+                  'MOB-${DateTime.now().millisecondsSinceEpoch}',
+              'note':
+                  'Paid via mobile app status update to ${status.toUpperCase()}',
+            }),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
-      debugPrint("API updateBillingStatementStatus failed: $e. Falling back to mock.");
-      final idx = _mockBillingStatements.indexWhere((b) => b['statementId'] == statementId);
+      debugPrint(
+        "API updateBillingStatementStatus failed: $e. Falling back to mock.",
+      );
+      final idx = _mockBillingStatements.indexWhere(
+        (b) => b['statementId'] == statementId,
+      );
       if (idx != -1) {
         _mockBillingStatements[idx]['status'] = status.toUpperCase();
         return true;
@@ -1251,11 +1805,13 @@ class ApiService {
   // --- New MANAGER APIs ---
 
   /// Create a new product
-  static Future<Map<String, dynamic>> createProduct(Map<String, dynamic> productData) async {
+  static Future<Map<String, dynamic>> createProduct(
+    Map<String, dynamic> productData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final newId = _mockProducts.length + 1;
-      
+
       final category = _mockCategoriesList.firstWhere(
         (c) => c['id'] == productData['categoryId'],
         orElse: () => {'id': 1, 'name': 'Danh mục mẫu'},
@@ -1280,15 +1836,17 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/products'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(productData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/products'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(productData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
-        return (body['data'] ?? body) as Map<String, dynamic>;
+        return body as Map<String, dynamic>;
       } else {
         throw Exception("Không thể tạo sản phẩm");
       }
@@ -1300,7 +1858,10 @@ class ApiService {
   }
 
   /// Update an existing product
-  static Future<bool> updateProduct(int productId, Map<String, dynamic> productData) async {
+  static Future<bool> updateProduct(
+    int productId,
+    Map<String, dynamic> productData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final index = _mockProducts.indexWhere((p) => p['id'] == productId);
@@ -1310,10 +1871,14 @@ class ApiService {
           orElse: () => _mockProducts[index]['category'],
         );
 
-        _mockProducts[index]['name'] = productData['name'] ?? _mockProducts[index]['name'];
-        _mockProducts[index]['description'] = productData['description'] ?? _mockProducts[index]['description'];
-        _mockProducts[index]['price'] = productData['price'] ?? _mockProducts[index]['price'];
-        _mockProducts[index]['unit'] = productData['unit'] ?? _mockProducts[index]['unit'];
+        _mockProducts[index]['name'] =
+            productData['name'] ?? _mockProducts[index]['name'];
+        _mockProducts[index]['description'] =
+            productData['description'] ?? _mockProducts[index]['description'];
+        _mockProducts[index]['price'] =
+            productData['price'] ?? _mockProducts[index]['price'];
+        _mockProducts[index]['unit'] =
+            productData['unit'] ?? _mockProducts[index]['unit'];
         _mockProducts[index]['category'] = {
           'id': category['id'],
           'name': category['name'],
@@ -1325,11 +1890,13 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/products/$productId'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(productData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/products/$productId'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(productData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1354,11 +1921,11 @@ class ApiService {
     }
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/materials'), headers: _getAuthHeaders())
+      final res = await http
+          .get(Uri.parse('$_baseUrl/materials'), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final List list = body['data'] ?? body;
+        final list = jsonDecode(res.body);
         return list.cast<Map<String, dynamic>>();
       }
       throw Exception("Lấy danh sách nguyên liệu thất bại");
@@ -1369,7 +1936,9 @@ class ApiService {
   }
 
   /// Create a new material
-  static Future<Map<String, dynamic>> createMaterial(Map<String, dynamic> materialData) async {
+  static Future<Map<String, dynamic>> createMaterial(
+    Map<String, dynamic> materialData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final newId = _mockMaterialsList.length + 1;
@@ -1385,15 +1954,17 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/materials'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(materialData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/materials'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(materialData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
-        return (body['data'] ?? body) as Map<String, dynamic>;
+        return body as Map<String, dynamic>;
       } else {
         throw Exception("Không thể tạo nguyên liệu");
       }
@@ -1405,24 +1976,31 @@ class ApiService {
   }
 
   /// Update a material
-  static Future<bool> updateMaterial(int materialId, Map<String, dynamic> materialData) async {
+  static Future<bool> updateMaterial(
+    int materialId,
+    Map<String, dynamic> materialData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final index = _mockMaterialsList.indexWhere((m) => m['id'] == materialId);
       if (index != -1) {
-        _mockMaterialsList[index]['name'] = materialData['name'] ?? _mockMaterialsList[index]['name'];
-        _mockMaterialsList[index]['unit'] = materialData['unit'] ?? _mockMaterialsList[index]['unit'];
+        _mockMaterialsList[index]['name'] =
+            materialData['name'] ?? _mockMaterialsList[index]['name'];
+        _mockMaterialsList[index]['unit'] =
+            materialData['unit'] ?? _mockMaterialsList[index]['unit'];
         return true;
       }
       return false;
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/materials/$materialId'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(materialData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/materials/$materialId'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(materialData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1445,11 +2023,11 @@ class ApiService {
     }
 
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/categories'), headers: _getAuthHeaders())
+      final res = await http
+          .get(Uri.parse('$_baseUrl/categories'), headers: _getAuthHeaders())
           .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        final List list = body['data'] ?? body;
+        final list = jsonDecode(res.body);
         return list.cast<Map<String, dynamic>>();
       }
       throw Exception("Lấy danh sách danh mục thất bại");
@@ -1460,7 +2038,9 @@ class ApiService {
   }
 
   /// Create a new category
-  static Future<Map<String, dynamic>> createCategory(Map<String, dynamic> categoryData) async {
+  static Future<Map<String, dynamic>> createCategory(
+    Map<String, dynamic> categoryData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final newId = _mockCategoriesList.length + 1;
@@ -1477,15 +2057,17 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/categories'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(categoryData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/categories'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(categoryData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
-        return (body['data'] ?? body) as Map<String, dynamic>;
+        return body as Map<String, dynamic>;
       } else {
         throw Exception("Không thể tạo danh mục");
       }
@@ -1497,29 +2079,41 @@ class ApiService {
   }
 
   /// Update category details
-  static Future<bool> updateCategory(int categoryId, Map<String, dynamic> categoryData) async {
+  static Future<bool> updateCategory(
+    int categoryId,
+    Map<String, dynamic> categoryData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      final index = _mockCategoriesList.indexWhere((c) => c['id'] == categoryId);
+      final index = _mockCategoriesList.indexWhere(
+        (c) => c['id'] == categoryId,
+      );
       if (index != -1) {
-        _mockCategoriesList[index]['name'] = categoryData['name'] ?? _mockCategoriesList[index]['name'];
-        _mockCategoriesList[index]['description'] = categoryData['description'] ?? _mockCategoriesList[index]['description'];
+        _mockCategoriesList[index]['name'] =
+            categoryData['name'] ?? _mockCategoriesList[index]['name'];
+        _mockCategoriesList[index]['description'] =
+            categoryData['description'] ??
+            _mockCategoriesList[index]['description'];
         return true;
       }
       return false;
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/categories/$categoryId'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(categoryData),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/categories/$categoryId'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(categoryData),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
       debugPrint("API updateCategory failed: $e. Falling back to mock.");
-      final index = _mockCategoriesList.indexWhere((c) => c['id'] == categoryId);
+      final index = _mockCategoriesList.indexWhere(
+        (c) => c['id'] == categoryId,
+      );
       if (index != -1) {
         _mockCategoriesList[index]['name'] = categoryData['name'];
         _mockCategoriesList[index]['description'] = categoryData['description'];
@@ -1539,14 +2133,16 @@ class ApiService {
     }
 
     try {
-      final res = await http.get(
-        Uri.parse('$_baseUrl/production-plans'),
-        headers: _getAuthHeaders(),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .get(
+            Uri.parse('$_baseUrl/production-plans'),
+            headers: _getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
-        final List content = body['content'] ?? body['data'] ?? body;
+        final List content = body['content'] ?? body;
         return content.cast<Map<String, dynamic>>();
       }
       throw Exception("Lấy danh sách lệnh sản xuất thất bại");
@@ -1569,10 +2165,12 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/production-plans/$planId/start'),
-        headers: _getAuthHeaders(),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/production-plans/$planId/start'),
+            headers: _getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1587,7 +2185,10 @@ class ApiService {
   }
 
   /// Finish/yield production plan
-  static Future<bool> finishProductionPlan(int planId, {List<Map<String, dynamic>>? outputs}) async {
+  static Future<bool> finishProductionPlan(
+    int planId, {
+    List<Map<String, dynamic>>? outputs,
+  }) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final idx = _mockProductionPlans.indexWhere((p) => p['planId'] == planId);
@@ -1600,11 +2201,13 @@ class ApiService {
 
     try {
       final payload = outputs != null ? {'outputs': outputs} : {};
-      final res = await http.post(
-        Uri.parse('$_baseUrl/production-plans/$planId/yield'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/production-plans/$planId/yield'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1626,14 +2229,13 @@ class ApiService {
     }
 
     try {
-      final res = await http.get(
-        Uri.parse('$_baseUrl/shipments'),
-        headers: _getAuthHeaders(),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .get(Uri.parse('$_baseUrl/shipments'), headers: _getAuthHeaders())
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
-        final List content = body['content'] ?? body['data'] ?? body;
+        final List content = body['content'] ?? body;
         return content.cast<Map<String, dynamic>>();
       }
       throw Exception("Lấy danh sách chuyến giao hàng thất bại");
@@ -1647,7 +2249,9 @@ class ApiService {
   static Future<bool> prepareShipment(int shipmentId) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
-      final idx = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      final idx = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (idx != -1) {
         _mockShipments[idx]['status'] = 'PREPARED';
         return true;
@@ -1656,15 +2260,19 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/shipments/$shipmentId/prepare'),
-        headers: _getAuthHeaders(),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/shipments/$shipmentId/prepare'),
+            headers: _getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
       debugPrint("API prepareShipment failed: $e. Falling back to mock.");
-      final idx = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      final idx = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (idx != -1) {
         _mockShipments[idx]['status'] = 'PREPARED';
         return true;
@@ -1677,7 +2285,9 @@ class ApiService {
   static Future<bool> startTransit(int shipmentId) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 400));
-      final idx = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      final idx = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (idx != -1) {
         _mockShipments[idx]['status'] = 'IN_TRANSIT';
         _mockShipments[idx]['driverName'] = 'Tài xế Ahamove';
@@ -1691,15 +2301,19 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/shipments/$shipmentId/transit'),
-        headers: _getAuthHeaders(),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/shipments/$shipmentId/transit'),
+            headers: _getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
       debugPrint("API startTransit failed: $e. Falling back to mock.");
-      final idx = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      final idx = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (idx != -1) {
         _mockShipments[idx]['status'] = 'IN_TRANSIT';
         _mockShipments[idx]['driverName'] = 'Tài xế Ahamove';
@@ -1715,7 +2329,9 @@ class ApiService {
   // --- STORE STAFF APIs ---
 
   /// Create a new Store Order (initial status is DRAFT)
-  static Future<Map<String, dynamic>> createStoreOrder(Map<String, dynamic> orderData) async {
+  static Future<Map<String, dynamic>> createStoreOrder(
+    Map<String, dynamic> orderData,
+  ) async {
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 300));
       final newOrderId = _mockOrders.length + 5001;
@@ -1724,16 +2340,16 @@ class ApiService {
       int total = 0;
 
       for (var it in itemsPayload) {
-        final prod = _mockProducts.firstWhere((p) => p['id'] == it['productId'], orElse: () => {});
+        final prod = _mockProducts.firstWhere(
+          (p) => p['id'] == it['productId'],
+          orElse: () => {},
+        );
         if (prod.isNotEmpty) {
           final price = prod['price'] ?? 0;
           final name = prod['name'] ?? 'Món';
           final qty = it['quantity'] ?? 1;
           total += (price * qty) as int;
-          itemsList.add({
-            'name': name,
-            'quantity': qty,
-          });
+          itemsList.add({'name': name, 'quantity': qty});
         }
       }
 
@@ -1752,15 +2368,23 @@ class ApiService {
     }
 
     try {
-      final res = await http.post(
-        Uri.parse('$_baseUrl/orders'),
-        headers: _getAuthHeaders(),
-        body: jsonEncode(orderData),
-      ).timeout(const Duration(seconds: 5));
+      final payload = {
+        'items': orderData['items'],
+        'deliveryDate':
+            orderData['deliveryDate'] ??
+            DateTime.now().add(const Duration(days: 1)).toIso8601String(),
+      };
+      final res = await http
+          .post(
+            Uri.parse('$_baseUrl/orders'),
+            headers: _getAuthHeaders(),
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
-        return (body['data'] ?? body) as Map<String, dynamic>;
+        return body as Map<String, dynamic>;
       } else {
         throw Exception("Không thể tạo đơn hàng nhượng quyền");
       }
@@ -1784,10 +2408,12 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/orders/$orderId/submit'),
-        headers: _getAuthHeaders(),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse('$_baseUrl/orders/$orderId/submit'),
+            headers: _getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
@@ -1802,18 +2428,59 @@ class ApiService {
   }
 
   /// Confirm shipment delivery receipt by the store (transitions status to DELIVERED)
-  static Future<bool> confirmShipmentDelivery(int shipmentId) async {
+  static Future<bool> confirmShipmentDelivery(
+    int shipmentId, {
+    int? stopId,
+  }) async {
+    int finalStopId = stopId ?? 0;
+
+    // Resolve stopId internally if not provided and in online mode
+    if (finalStopId == 0 && !isOfflineMockMode && currentUser != null) {
+      try {
+        final res = await http.get(
+          Uri.parse('$_baseUrl/shipments/$shipmentId'),
+          headers: _getAuthHeaders(),
+        );
+        if (res.statusCode == 200) {
+          final shipment = jsonDecode(res.body);
+          final List stops = shipment['stops'] ?? [];
+          final userStop = stops.firstWhere(
+            (stop) => stop['storeId'] == currentUser?.storeId,
+            orElse: () => null,
+          );
+          if (userStop != null) {
+            finalStopId = userStop['stopId'] ?? 0;
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching shipment to resolve stopId: $e");
+      }
+    }
+
     if (isOfflineMockMode || currentUser == null) {
       await Future.delayed(const Duration(milliseconds: 400));
-      final sIdx = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      final sIdx = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (sIdx != -1) {
         _mockShipments[sIdx]['status'] = 'DELIVERED';
         _mockShipments[sIdx]['deliveredAt'] = DateTime.now().toIso8601String();
         _mockShipments[sIdx]['ahamoveStatus'] = 'DELIVERED';
 
-        // Update all related orders to DELIVERED
+        // Update all related orders to DELIVERED for the matching stop
         final List stopsList = _mockShipments[sIdx]['stops'] ?? [];
-        for (var stop in stopsList) {
+        var targetStops = stopsList;
+        if (finalStopId != 0) {
+          targetStops = stopsList
+              .where((stop) => stop['stopId'] == finalStopId)
+              .toList();
+        } else if (currentUser?.storeId != null) {
+          targetStops = stopsList
+              .where((stop) => stop['storeId'] == currentUser?.storeId)
+              .toList();
+        }
+
+        for (var stop in targetStops) {
           final List orderIds = stop['storeOrderIds'] ?? [];
           for (var oId in orderIds) {
             final oIdx = _mockOrders.indexWhere((o) => o['orderId'] == oId);
@@ -1828,22 +2495,41 @@ class ApiService {
     }
 
     try {
-      final res = await http.patch(
-        Uri.parse('$_baseUrl/shipments/$shipmentId/confirm'),
-        headers: _getAuthHeaders(),
-      ).timeout(const Duration(seconds: 5));
+      final res = await http
+          .patch(
+            Uri.parse(
+              '$_baseUrl/shipments/$shipmentId/stops/$finalStopId/confirm',
+            ),
+            headers: _getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 5));
 
       return res.statusCode == 200 || res.statusCode == 204;
     } catch (e) {
-      debugPrint("API confirmShipmentDelivery failed: $e. Falling back to mock.");
-      final sIdx = _mockShipments.indexWhere((s) => s['shipmentId'] == shipmentId);
+      debugPrint(
+        "API confirmShipmentDelivery failed: $e. Falling back to mock.",
+      );
+      final sIdx = _mockShipments.indexWhere(
+        (s) => s['shipmentId'] == shipmentId,
+      );
       if (sIdx != -1) {
         _mockShipments[sIdx]['status'] = 'DELIVERED';
         _mockShipments[sIdx]['deliveredAt'] = DateTime.now().toIso8601String();
         _mockShipments[sIdx]['ahamoveStatus'] = 'DELIVERED';
-        
+
         final List stopsList = _mockShipments[sIdx]['stops'] ?? [];
-        for (var stop in stopsList) {
+        var targetStops = stopsList;
+        if (finalStopId != 0) {
+          targetStops = stopsList
+              .where((stop) => stop['stopId'] == finalStopId)
+              .toList();
+        } else if (currentUser?.storeId != null) {
+          targetStops = stopsList
+              .where((stop) => stop['storeId'] == currentUser?.storeId)
+              .toList();
+        }
+
+        for (var stop in targetStops) {
           final List orderIds = stop['storeOrderIds'] ?? [];
           for (var oId in orderIds) {
             final oIdx = _mockOrders.indexWhere((o) => o['orderId'] == oId);
@@ -1858,7 +2544,10 @@ class ApiService {
     }
   }
 
-  static Map<String, dynamic> _fillMissingStats(Map<String, dynamic> stats, String role) {
+  static Map<String, dynamic> _fillMissingStats(
+    Map<String, dynamic> stats,
+    String role,
+  ) {
     final mock = _getMockStatsForRole(role);
     mock.forEach((key, value) {
       stats.putIfAbsent(key, () => value);
@@ -1868,21 +2557,29 @@ class ApiService {
 
   static List<Map<String, dynamic>> _getMockActivitiesForRole(String role) {
     if (role == 'KITCHEN_STAFF') {
-      return _mockShipments.map<Map<String, dynamic>>((s) => {
-        'type': 'SHIPMENT',
-        'id': s['shipmentId'],
-        'title': 'Chuyến xe: TRK-${s['shipmentId']}',
-        'subtitle': s['storeName'] ?? 'Cửa hàng',
-        'status': s['status'] ?? 'PENDING',
-      }).toList();
+      return _mockShipments
+          .map<Map<String, dynamic>>(
+            (s) => {
+              'type': 'SHIPMENT',
+              'id': s['shipmentId'],
+              'title': 'Chuyến xe: TRK-${s['shipmentId']}',
+              'subtitle': s['storeName'] ?? 'Cửa hàng',
+              'status': s['status'] ?? 'PENDING',
+            },
+          )
+          .toList();
     } else {
-      return _mockOrders.map<Map<String, dynamic>>((o) => {
-        'type': 'ORDER',
-        'id': o['orderId'],
-        'title': 'Mã ĐH: #${o['orderId']}',
-        'subtitle': o['storeName'] ?? 'Cửa hàng',
-        'status': o['status'] ?? 'PENDING',
-      }).toList();
+      return _mockOrders
+          .map<Map<String, dynamic>>(
+            (o) => {
+              'type': 'ORDER',
+              'id': o['orderId'],
+              'title': 'Mã ĐH: #${o['orderId']}',
+              'subtitle': o['storeName'] ?? 'Cửa hàng',
+              'status': o['status'] ?? 'PENDING',
+            },
+          )
+          .toList();
     }
   }
 }

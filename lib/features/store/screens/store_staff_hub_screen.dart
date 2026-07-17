@@ -111,9 +111,9 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
     }
   }
 
-  Future<void> _confirmReceiptAction(int shipmentId) async {
+  Future<void> _confirmReceiptAction(int shipmentId, int stopId) async {
     try {
-      final ok = await ApiService.confirmShipmentDelivery(shipmentId);
+      final ok = await ApiService.confirmShipmentDelivery(shipmentId, stopId: stopId);
       if (ok) {
         _showSnackBar("Xác nhận nhận hàng thành công cho chuyến TRK-$shipmentId!", Colors.green);
         _loadShipments();
@@ -652,6 +652,11 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                     final date = s['createdAt'] ?? '';
                     final serviceId = s['ahamoveServiceId'] ?? 'SGN-BIKE';
                     final List stopsList = s['stops'] ?? [];
+                    final myStop = stopsList.firstWhere(
+                      (stop) => stop['storeId'] == ApiService.currentUser?.storeId,
+                      orElse: () => null,
+                    );
+                    final stopId = myStop != null ? (myStop['stopId'] ?? 0) : 0;
                     final List<int> orderIds = [];
                     for (var stop in stopsList) {
                       final List oIds = stop['storeOrderIds'] ?? [];
@@ -713,7 +718,7 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                                   backgroundColor: Colors.green,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
-                                onPressed: () => _confirmReceiptAction(id),
+                                onPressed: () => _confirmReceiptAction(id, stopId),
                                 child: const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
