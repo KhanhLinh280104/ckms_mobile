@@ -4,15 +4,38 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../core/utils/jwt_parser.dart';
 import '../models/user_model.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  // Base URL for API requests.
-  // Using 10.0.2.2 for Android Emulator to connect to localhost, and localhost for other platforms.
-  static final String _baseUrl = kIsWeb
-      ? ''
-      : (Platform.isAndroid
-            ? 'http://192.168.2.23:8080/api/v1'
-            : 'http://localhost:8080/api/v1');
+  // 1. Biến môi trường cao nhất ưu tiên cho Docker / Production
+  static const String _apiEnv = String.fromEnvironment('API_BASE_URL');
+
+  // 2. Hàm xử lý bóc tách cấu hình thông minh
+  static String _resolveBaseUrl() {
+    if (kIsWeb) return ''; // Docker Nginx Reverse Proxy cho bản Web
+
+    // Nếu chạy Docker hoặc Server thật (có truyền biến qua command line) thì ăn theo biến này
+    if (_apiEnv.isNotEmpty) return _apiEnv;
+
+    // Nếu dev local bình thường, đọc thẳng từ file .env
+    if (Platform.isAndroid) {
+      final isEmulator = dotenv.env['RUN_EMULATOR'] == 'true';
+      return isEmulator
+          ? dotenv.get(
+              'API_URL_EMULATOR',
+              fallback: 'http://10.0.2.2:8080/api/v1',
+            )
+          : dotenv.get(
+              'API_URL_REAL_DEVICE',
+              fallback: 'http://192.168.2.39:8080/api/v1',
+            );
+    }
+
+    return 'http://localhost:8080/api/v1';
+  }
+
+  // 3. URL cuối cùng để gọi API
+  static final String _baseUrl = _resolveBaseUrl();
 
   // Cache of the currently logged-in user
   static UserModel? currentUser;
