@@ -874,14 +874,16 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
     final storeName = store['name'] ?? 'Cửa hàng';
 
     final payload = {
-      'storeId': _selectedStoreId,
-      'storeName': storeName,
-      'storeOrderIds': [_selectedOrderId],
-      'driverName': _driverNameController.text.trim(),
-      'driverPhone': _driverPhoneController.text.trim(),
-      'vehicleInfo': _vehicleController.text.trim(),
       'ahamoveServiceId': _selectedService,
-      'productionPlanId': 1, // Default plan
+      'productionPlanId': 301,
+      'dropPoints': [
+        {
+          'storeId': _selectedStoreId,
+          'storeOrderIds': [_selectedOrderId],
+          'remarks': 'Giao đơn #${_selectedOrderId}',
+        }
+      ],
+      'remarks': 'Giao hàng theo chuyến điều phối',
     };
 
     try {

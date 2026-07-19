@@ -43,21 +43,11 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
     setState(() => _isLoadingOrders = true);
 
     try {
-      final list = await ApiService.fetchOrdersList();
-      final storeId = ApiService.currentUser?.storeId;
+      final list = await ApiService.fetchMyOrders(status: _selectedOrderStatus);
 
       if (mounted) {
         setState(() {
-          var filtered = list;
-          if (storeId != null) {
-            filtered = list.where((o) => o['storeId'] == storeId).toList();
-          }
-
-          if (_selectedOrderStatus != "ALL") {
-            _orders = filtered.where((o) => o['status'] == _selectedOrderStatus).toList();
-          } else {
-            _orders = filtered;
-          }
+          _orders = list;
           _isLoadingOrders = false;
         });
       }
@@ -808,8 +798,8 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
 
     try {
       final payload = {
-        'storeId': ApiService.currentUser?.storeId ?? 1,
         'items': itemsPayload,
+        'deliveryDate': DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T')[0],
       };
 
       await ApiService.createStoreOrder(payload);
@@ -859,7 +849,7 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
                       final id = p['id'] as int;
                       final name = p['name'] ?? '';
                       final price = p['price'] ?? 0;
-                      final unit = p['unit'] ?? 'Đĩa';
+                      final unit = p['unit'] ?? 'PIECE';
                       final currentQty = _selectedQuantities[id] ?? 0;
 
                       return Container(

@@ -435,7 +435,7 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
                             final name = p['name'] ?? 'Món ăn';
                             final desc = p['description'] ?? 'Chưa cập nhật mô tả';
                             final price = p['price'] ?? 0;
-                            final unit = p['unit'] ?? 'Đĩa';
+                            final unit = p['unit'] ?? 'PIECE';
                             final catName = p['category']?['name'] ?? 'Chưa phân loại';
 
                             return Container(
@@ -864,7 +864,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
-  final _unitController = TextEditingController(text: 'Đĩa');
+  final _unitController = TextEditingController(text: 'PIECE');
   int? _selectedCategoryId;
   bool _isSubmitting = false;
 
@@ -875,7 +875,7 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
       _nameController.text = widget.product!['name'] ?? '';
       _descController.text = widget.product!['description'] ?? '';
       _priceController.text = widget.product!['price']?.toString() ?? '0';
-      _unitController.text = widget.product!['unit'] ?? 'Đĩa';
+      _unitController.text = widget.product!['unit'] ?? 'PIECE';
       _selectedCategoryId = widget.product!['category']?['id'];
     }
   }

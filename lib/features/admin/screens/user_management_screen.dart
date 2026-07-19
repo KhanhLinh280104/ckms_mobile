@@ -211,7 +211,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               final String fullName = user['fullName'] ?? 'Nhân sự';
                               final String username = user['username'] ?? '';
                               final String email = user['email'] ?? '';
-                              final String roleName = user['roleName'] ?? 'STORE_STAFF';
+                              final String roleName = user['role'] ?? user['roleName'] ?? 'STORE_STAFF';
                               final String? storeName = user['storeName'];
                               final String? kitchenName = user['kitchenName'];
                               final bool isActive = user['isActive'] ?? true;

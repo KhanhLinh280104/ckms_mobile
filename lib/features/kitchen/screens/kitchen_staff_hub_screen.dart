@@ -346,7 +346,7 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                                 ...itemsList.map((item) {
                                   final pName = item['productName'] ?? '';
                                   final qty = item['plannedQuantity'] ?? 0;
-                                  final unit = item['unit'] ?? 'Đĩa';
+                                  final unit = item['unit'] ?? 'PIECE';
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 4),
                                     child: Row(
