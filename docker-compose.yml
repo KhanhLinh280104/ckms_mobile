@@ -1,0 +1,37 @@
+services:
+  # Service Nginx web ứng dụng mobile của bạn giữ nguyên
+  ckms-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ckms_mobile_web
+    ports:
+      - "8082:80"
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # THÊM SERVICE NGROK VÀO ĐÂY:
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok-tunnel
+    restart: always
+    ports:
+      - "4040:4040"
+    command:
+      - "http"
+      - "ckms-web:80" # Trỏ thẳng vào tên service ckms-web ở cổng 80 bên trong Docker!
+    environment:
+      - NGROK_AUTHTOKEN=3GfSTnzDcsvvR00NOEBPBMK2Kkb_5LQ6cnMdMF84Bs2FLN2X4
+
+  ai-service:
+    image: ollama/ollama:latest
+    container_name: ckms_ai_ollama
+    ports:
+      - "11434:11434" # Mở cổng này để Backend từ máy Windows có thể gọi vào dễ dàng
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: always
+
+volumes:
+  ollama_data: # Khai báo ổ đĩa ảo để lưu mô hình AI vĩnh viễn, tắt máy không bị mất
