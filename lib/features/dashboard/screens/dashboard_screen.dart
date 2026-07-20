@@ -17,7 +17,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   Map<String, dynamic> _stats = {};
   List<Map<String, dynamic>> _activities = [];
@@ -64,7 +65,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Lỗi tải dữ liệu: ${e.toString().replaceAll("Exception: ", "")}"),
+            content: Text(
+              "Lỗi tải dữ liệu: ${e.toString().replaceAll("Exception: ", "")}",
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -78,7 +81,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color(0xff1A1A1A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Text(
             "Đăng xuất",
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -95,7 +100,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onPressed: () {
                 ApiService.currentUser = null;
@@ -104,7 +111,13 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
                 );
               },
-              child: const Text("Xác nhận", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              child: const Text(
+                "Xác nhận",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         );
@@ -311,7 +324,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             children: [
               // Active Role badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.03),
                   borderRadius: BorderRadius.circular(20),
@@ -328,13 +344,17 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           height: 8,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.orange.withOpacity(_pulseController.value * 0.7 + 0.3),
+                            color: Colors.orange.withOpacity(
+                              _pulseController.value * 0.7 + 0.3,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.orange.withOpacity(_pulseController.value * 0.4),
+                                color: Colors.orange.withOpacity(
+                                  _pulseController.value * 0.4,
+                                ),
                                 blurRadius: 6,
                                 spreadRadius: 1,
-                              )
+                              ),
                             ],
                           ),
                         );
@@ -360,11 +380,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     onPressed: _isLoading ? null : _loadData,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent),
+                    icon: const Icon(
+                      Icons.power_settings_new_rounded,
+                      color: Colors.redAccent,
+                    ),
                     onPressed: _handleLogout,
                   ),
                 ],
-              )
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -386,8 +409,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             widget.user.storeId != null
                 ? "Quản lý tại: ${widget.user.storeName}"
                 : (widget.user.kitchenId != null
-                    ? "Phụ trách: ${widget.user.kitchenName ?? 'Bếp trung tâm'}"
-                    : "Hệ thống Bếp Trung Tâm CKMS"),
+                      ? "Phụ trách: ${widget.user.kitchenName ?? 'Bếp trung tâm'}"
+                      : "Hệ thống Bếp Trung Tâm CKMS"),
             style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
           ),
         ],
@@ -433,7 +456,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         mainAxisSpacing: 14,
         childAspectRatio: 1.4,
         children: List.generate(
-          widget.user.role == 'ADMIN' || widget.user.role == 'KITCHEN_STAFF' ? 2 : (widget.user.role == 'COORDINATOR' ? 3 : 1),
+          widget.user.role == 'ADMIN' || widget.user.role == 'KITCHEN_STAFF'
+              ? 2
+              : (widget.user.role == 'COORDINATOR' ? 3 : 1),
           (index) => Container(
             decoration: BoxDecoration(
               color: const Color(0xff1A1A1A),
@@ -443,7 +468,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(color: Colors.orange, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  color: Colors.orange,
+                  strokeWidth: 2,
+                ),
               ),
             ),
           ),
@@ -454,18 +482,74 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     final List<Widget> statCards = [];
 
     if (widget.user.role == 'ADMIN') {
-      statCards.add(_buildStatCard("Số Cửa Hàng", _stats['activeStores'] ?? 0, Icons.store, Colors.amber));
-      statCards.add(_buildStatCard("Người Dùng", _stats['activeUsers'] ?? 0, Icons.people_alt, Colors.blue));
+      statCards.add(
+        _buildStatCard(
+          "Số Cửa Hàng",
+          _stats['activeStores'] ?? 0,
+          Icons.store,
+          Colors.amber,
+        ),
+      );
+      statCards.add(
+        _buildStatCard(
+          "Người Dùng",
+          _stats['activeUsers'] ?? 0,
+          Icons.people_alt,
+          Colors.blue,
+        ),
+      );
     } else if (widget.user.role == 'COORDINATOR') {
-      statCards.add(_buildStatCard("Chờ Xử Lý", _stats['pendingOrders'] ?? 0, Icons.shopping_bag, Colors.orange));
-      statCards.add(_buildStatCard("Đang Giao", _stats['pendingShipments'] ?? 0, Icons.local_shipping, Colors.blue));
-      statCards.add(_buildStatCard("Tổng Cửa Hàng", _stats['activeStores'] ?? 0, Icons.store, Colors.amber));
+      statCards.add(
+        _buildStatCard(
+          "Chờ Xử Lý",
+          _stats['pendingOrders'] ?? 0,
+          Icons.shopping_bag,
+          Colors.orange,
+        ),
+      );
+      statCards.add(
+        _buildStatCard(
+          "Đang Giao",
+          _stats['pendingShipments'] ?? 0,
+          Icons.local_shipping,
+          Colors.blue,
+        ),
+      );
+      statCards.add(
+        _buildStatCard(
+          "Tổng Cửa Hàng",
+          _stats['activeStores'] ?? 0,
+          Icons.store,
+          Colors.amber,
+        ),
+      );
     } else if (widget.user.role == 'KITCHEN_STAFF') {
-      statCards.add(_buildStatCard("KH Sản Xuất", _stats['productionPlans'] ?? 0, Icons.assignment, Colors.amber));
-      statCards.add(_buildStatCard("Chuyến Xe", _stats['pendingShipments'] ?? 0, Icons.local_shipping, Colors.blue));
+      statCards.add(
+        _buildStatCard(
+          "KH Sản Xuất",
+          _stats['productionPlans'] ?? 0,
+          Icons.assignment,
+          Colors.amber,
+        ),
+      );
+      statCards.add(
+        _buildStatCard(
+          "Chuyến Xe",
+          _stats['pendingShipments'] ?? 0,
+          Icons.local_shipping,
+          Colors.blue,
+        ),
+      );
     } else {
       // STORE_STAFF / MANAGER
-      statCards.add(_buildStatCard("Đơn Của Tôi", _stats['pendingOrders'] ?? 0, Icons.receipt_long, Colors.orange));
+      statCards.add(
+        _buildStatCard(
+          "Đơn Của Tôi",
+          _stats['pendingOrders'] ?? 0,
+          Icons.receipt_long,
+          Colors.orange,
+        ),
+      );
     }
 
     return GridView.count(
@@ -479,7 +563,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildStatCard(String title, dynamic value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    dynamic value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -527,7 +616,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 ),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -538,41 +627,211 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
     if (widget.user.role == 'ADMIN') {
       actions.addAll([
-        {'name': 'Nhân sự', 'icon': Icons.people_alt_rounded, 'color': Colors.redAccent, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen(initialTab: 0)))},
-        {'name': 'Cửa hàng', 'icon': Icons.storefront_rounded, 'color': Colors.amber, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen(initialTab: 1)))},
-        {'name': 'Hóa đơn', 'icon': Icons.payments_rounded, 'color': Colors.orange, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen(initialTab: 2)))},
-        {'name': 'Báo cáo', 'icon': Icons.analytics_rounded, 'color': Colors.purpleAccent, 'action': () => _showFeatureUnderDevelopment('Báo cáo')},
+        {
+          'name': 'Nhân sự',
+          'icon': Icons.people_alt_rounded,
+          'color': Colors.redAccent,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdminHubScreen(initialTab: 0),
+            ),
+          ),
+        },
+        {
+          'name': 'Cửa hàng',
+          'icon': Icons.storefront_rounded,
+          'color': Colors.amber,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdminHubScreen(initialTab: 1),
+            ),
+          ),
+        },
+        {
+          'name': 'Hóa đơn',
+          'icon': Icons.payments_rounded,
+          'color': Colors.orange,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdminHubScreen(initialTab: 2),
+            ),
+          ),
+        },
+        {
+          'name': 'Báo cáo',
+          'icon': Icons.analytics_rounded,
+          'color': Colors.purpleAccent,
+          'action': () => _showFeatureUnderDevelopment('Báo cáo'),
+        },
       ]);
     } else if (widget.user.role == 'MANAGER') {
       actions.addAll([
-        {'name': 'Sản phẩm', 'icon': Icons.inventory_2_rounded, 'color': Colors.teal, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManagerHubScreen(initialTab: 0)))},
-        {'name': 'Nguyên liệu', 'icon': Icons.receipt_long_rounded, 'color': Colors.indigoAccent, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManagerHubScreen(initialTab: 1)))},
-        {'name': 'Danh mục', 'icon': Icons.category_rounded, 'color': Colors.amber, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManagerHubScreen(initialTab: 2)))},
-        {'name': 'Hóa đơn', 'icon': Icons.payments_rounded, 'color': Colors.orange, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManagerHubScreen(initialTab: 3)))},
+        {
+          'name': 'Sản phẩm',
+          'icon': Icons.inventory_2_rounded,
+          'color': Colors.teal,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ManagerHubScreen(initialTab: 0),
+            ),
+          ),
+        },
+        {
+          'name': 'Nguyên liệu',
+          'icon': Icons.receipt_long_rounded,
+          'color': Colors.indigoAccent,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ManagerHubScreen(initialTab: 1),
+            ),
+          ),
+        },
+        {
+          'name': 'Danh mục',
+          'icon': Icons.category_rounded,
+          'color': Colors.amber,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ManagerHubScreen(initialTab: 2),
+            ),
+          ),
+        },
+        {
+          'name': 'Hóa đơn',
+          'icon': Icons.payments_rounded,
+          'color': Colors.orange,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ManagerHubScreen(initialTab: 3),
+            ),
+          ),
+        },
       ]);
     } else if (widget.user.role == 'COORDINATOR') {
       actions.addAll([
-        {'name': 'Đơn hàng', 'icon': Icons.assignment_rounded, 'color': Colors.orange, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CoordinatorHubScreen(initialTab: 0)))},
-        {'name': 'Vận chuyển', 'icon': Icons.local_shipping_rounded, 'color': Colors.blue, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CoordinatorHubScreen(initialTab: 1)))},
-        {'name': 'Báo cáo', 'icon': Icons.analytics_rounded, 'color': Colors.purpleAccent, 'action': () => _showFeatureUnderDevelopment('Báo cáo')},
+        {
+          'name': 'Đơn hàng',
+          'icon': Icons.assignment_rounded,
+          'color': Colors.orange,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CoordinatorHubScreen(initialTab: 0),
+            ),
+          ),
+        },
+        {
+          'name': 'Vận chuyển',
+          'icon': Icons.local_shipping_rounded,
+          'color': Colors.blue,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CoordinatorHubScreen(initialTab: 1),
+            ),
+          ),
+        },
+        {
+          'name': 'Báo cáo',
+          'icon': Icons.analytics_rounded,
+          'color': Colors.purpleAccent,
+          'action': () => _showFeatureUnderDevelopment('Báo cáo'),
+        },
       ]);
     } else if (widget.user.role == 'KITCHEN_STAFF') {
       actions.addAll([
-        {'name': 'Sản xuất', 'icon': Icons.soup_kitchen_rounded, 'color': Colors.orange, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KitchenStaffHubScreen(initialTab: 0)))},
-        {'name': 'Giao hàng', 'icon': Icons.local_shipping_rounded, 'color': Colors.teal, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KitchenStaffHubScreen(initialTab: 1)))},
-        {'name': 'Báo cáo', 'icon': Icons.analytics_rounded, 'color': Colors.purpleAccent, 'action': () => _showFeatureUnderDevelopment('Báo cáo')},
+        {
+          'name': 'Sản xuất',
+          'icon': Icons.soup_kitchen_rounded,
+          'color': Colors.orange,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const KitchenStaffHubScreen(initialTab: 0),
+            ),
+          ),
+        },
+        {
+          'name': 'Giao hàng',
+          'icon': Icons.local_shipping_rounded,
+          'color': Colors.teal,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const KitchenStaffHubScreen(initialTab: 1),
+            ),
+          ),
+        },
+        {
+          'name': 'Báo cáo',
+          'icon': Icons.analytics_rounded,
+          'color': Colors.purpleAccent,
+          'action': () => _showFeatureUnderDevelopment('Báo cáo'),
+        },
       ]);
     } else if (widget.user.role == 'STORE_STAFF') {
       actions.addAll([
-        {'name': 'Đơn hàng', 'icon': Icons.assignment_rounded, 'color': Colors.orange, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const StoreStaffHubScreen(initialTab: 0)))},
-        {'name': 'Đang giao', 'icon': Icons.location_on_rounded, 'color': Colors.blueAccent, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const StoreStaffHubScreen(initialTab: 1)))},
-        {'name': 'Nhận hàng', 'icon': Icons.check_circle_outline_rounded, 'color': Colors.teal, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const StoreStaffHubScreen(initialTab: 2)))},
+        {
+          'name': 'Đơn hàng',
+          'icon': Icons.assignment_rounded,
+          'color': Colors.orange,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const StoreStaffHubScreen(initialTab: 0),
+            ),
+          ),
+        },
+        {
+          'name': 'Nhận hàng',
+          'icon': Icons.check_circle_outline_rounded,
+          'color': Colors.teal,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const StoreStaffHubScreen(initialTab: 1),
+            ),
+          ),
+        },
+        {
+          'name': 'Hóa đơn',
+          'icon': Icons.receipt_long_rounded,
+          'color': Colors.purpleAccent,
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const StoreStaffHubScreen(initialTab: 2),
+            ),
+          ),
+        },
       ]);
     } else {
       actions.addAll([
-        {'name': 'Đơn hàng', 'icon': Icons.assignment_rounded, 'color': Colors.orange, 'action': () => _showFeatureUnderDevelopment('Đơn hàng')},
-        {'name': 'Vận chuyển', 'icon': Icons.local_shipping_rounded, 'color': Colors.blue, 'action': () => _showFeatureUnderDevelopment('Vận chuyển')},
-        {'name': 'Báo cáo', 'icon': Icons.analytics_rounded, 'color': Colors.purpleAccent, 'action': () => _showFeatureUnderDevelopment('Báo cáo')},
+        {
+          'name': 'Đơn hàng',
+          'icon': Icons.assignment_rounded,
+          'color': Colors.orange,
+          'action': () => _showFeatureUnderDevelopment('Đơn hàng'),
+        },
+        {
+          'name': 'Vận chuyển',
+          'icon': Icons.local_shipping_rounded,
+          'color': Colors.blue,
+          'action': () => _showFeatureUnderDevelopment('Vận chuyển'),
+        },
+        {
+          'name': 'Báo cáo',
+          'icon': Icons.analytics_rounded,
+          'color': Colors.purpleAccent,
+          'action': () => _showFeatureUnderDevelopment('Báo cáo'),
+        },
       ]);
     }
 
@@ -648,7 +907,11 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         ),
         child: Column(
           children: [
-            Icon(Icons.history_toggle_off_rounded, color: Colors.grey.shade700, size: 40),
+            Icon(
+              Icons.history_toggle_off_rounded,
+              color: Colors.grey.shade700,
+              size: 40,
+            ),
             const SizedBox(height: 12),
             Text(
               "Không có hoạt động mới nào",
@@ -687,10 +950,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.03),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white.withOpacity(0.06)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.06),
+                        ),
                       ),
                       child: Icon(
-                        isOrder ? Icons.inventory_2_rounded : Icons.local_shipping_rounded,
+                        isOrder
+                            ? Icons.inventory_2_rounded
+                            : Icons.local_shipping_rounded,
                         color: isOrder ? Colors.orange : Colors.blueAccent,
                         size: 20,
                       ),
@@ -725,11 +992,16 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: _getStatusColor(status).withOpacity(0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _getStatusColor(status).withOpacity(0.2)),
+                  border: Border.all(
+                    color: _getStatusColor(status).withOpacity(0.2),
+                  ),
                 ),
                 child: Text(
                   _getStatusLabel(status),

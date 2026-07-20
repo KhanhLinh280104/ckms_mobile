@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../services/api_service.dart';
 
 class CoordinatorHubScreen extends StatefulWidget {
@@ -23,12 +24,49 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
   List<Map<String, dynamic>> _shipments = [];
   String _selectedShipmentStatus = "ALL";
 
+  // Kitchen Progress Tab State
+  bool _isLoadingKitchenPlans = true;
+  List<Map<String, dynamic>> _kitchenPlans = [];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
     _loadOrders();
     _loadShipments();
+    _loadKitchenPlans();
+  }
+
+  Future<void> _loadKitchenPlans() async {
+    setState(() => _isLoadingKitchenPlans = true);
+    try {
+      final plans = await ApiService.fetchProductionPlans();
+      if (mounted) {
+        setState(() {
+          _kitchenPlans = plans;
+          _isLoadingKitchenPlans = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingKitchenPlans = false);
+    }
+  }
+
+  Future<void> _launchAhamoveLink(String link) async {
+    String url = link;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://tracking.ahamove.com/$link';
+    }
+    final uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Mã AhaMove: $url"), backgroundColor: Colors.orange));
+      }
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Mã AhaMove: $url"), backgroundColor: Colors.orange));
+    }
   }
 
   @override
@@ -254,7 +292,26 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                     Text(_formatCurrency(totalAmount), style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
+
+                // AhaMove Tracking link button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.orange, width: 1.2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () {
+                      final tracking = order['ahamoveOrderId'] ?? order['trackingUrl'] ?? order['shipmentId'] ?? 'AHA-ORDER-$id';
+                      _launchAhamoveLink(tracking.toString());
+                    },
+                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.orange, size: 16),
+                    label: const Text("Xem link AhaMove (Tracking)", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 
                 // Quick approve directly inside details sheet
                 if (status == 'SUBMITTED') ...[
@@ -422,8 +479,9 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
           unselectedLabelColor: Colors.grey,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
           tabs: const [
-            Tab(text: "ĐƠN HÀNG", icon: Icon(Icons.assignment_rounded, size: 20)),
-            Tab(text: "VẬN CHUYỂN", icon: Icon(Icons.local_shipping_rounded, size: 20)),
+            Tab(text: "ĐƠN HÀNG", icon: Icon(Icons.assignment_rounded, size: 18)),
+            Tab(text: "VẬN CHUYỂN", icon: Icon(Icons.local_shipping_rounded, size: 18)),
+            Tab(text: "TIẾN ĐỘ BẾP", icon: Icon(Icons.soup_kitchen_rounded, size: 18)),
           ],
         ),
       ),
@@ -433,6 +491,7 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
           children: [
             _buildOrdersTab(),
             _buildShipmentsTab(),
+            _buildKitchenProgressTab(),
           ],
         ),
       ),
@@ -785,6 +844,110 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildKitchenProgressTab() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.soup_kitchen_rounded, color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Text("TIẾN ĐỘ SẢN XUẤT BẾP TRUNG TÂM", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: Colors.orange, size: 20),
+                onPressed: _loadKitchenPlans,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _isLoadingKitchenPlans
+                ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+                : _kitchenPlans.isEmpty
+                    ? Center(child: Text("Bếp chưa có kế hoạch sản xuất nào", style: TextStyle(color: Colors.grey.shade500)))
+                    : ListView.separated(
+                        itemCount: _kitchenPlans.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final plan = _kitchenPlans[index];
+                          final id = plan['planId'] ?? plan['id'] ?? 0;
+                          final planName = plan['planName'] ?? 'Lệnh sản xuất #$id';
+                          final status = plan['status'] ?? 'READY_TO_PRODUCE';
+                          final kitchenName = plan['kitchenName'] ?? 'Bếp trung tâm';
+                          final List items = plan['items'] ?? [];
+
+                          Color statusColor = Colors.orangeAccent;
+                          String statusText = "SẴN SÀNG";
+                          if (status == 'PRODUCING') {
+                            statusColor = Colors.blueAccent;
+                            statusText = "ĐANG NẤU BẾP";
+                          } else if (status == 'COMPLETED') {
+                            statusColor = Colors.greenAccent;
+                            statusText = "HOÀN THÀNH";
+                          }
+
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff1A1A1A),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.04)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(planName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text("Địa điểm: $kitchenName", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                                const Divider(color: Colors.white10, height: 20),
+                                const Text("MÓN ĂN ĐANG SẢN XUẤT:", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                                const SizedBox(height: 6),
+                                ...items.map((it) {
+                                  final name = it['productName'] ?? it['name'] ?? 'Sản phẩm';
+                                  final qty = it['plannedQuantity'] ?? it['quantity'] ?? 0;
+                                  final unit = it['unit'] ?? 'PIECE';
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(name, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                        Text("$qty $unit", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

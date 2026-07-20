@@ -58,7 +58,9 @@ class ApiService {
 
   // Helper xử lý HTTP Response
   static dynamic _handleResponse(http.Response response) {
-    debugPrint('API [${response.request?.method}] ${response.request?.url} -> status ${response.statusCode}');
+    debugPrint(
+      'API [${response.request?.method}] ${response.request?.url} -> status ${response.statusCode}',
+    );
     if (response.statusCode == 204 || response.bodyBytes.isEmpty) {
       return null;
     }
@@ -76,7 +78,11 @@ class ApiService {
     } else {
       String errorMsg = "Yêu cầu thất bại (Mã lỗi: ${response.statusCode})";
       if (body is Map<String, dynamic>) {
-        errorMsg = body['message'] ?? body['error'] ?? body['data']?.toString() ?? errorMsg;
+        errorMsg =
+            body['message'] ??
+            body['error'] ??
+            body['data']?.toString() ??
+            errorMsg;
       } else if (body is String && body.isNotEmpty) {
         errorMsg = body;
       }
@@ -86,7 +92,8 @@ class ApiService {
 
   // Helper gỡ wrapper ApiResponse<T> (nếu response có bọc qua object data)
   static dynamic _unwrapData(dynamic responseJson) {
-    if (responseJson is Map<String, dynamic> && responseJson.containsKey('data')) {
+    if (responseJson is Map<String, dynamic> &&
+        responseJson.containsKey('data')) {
       return responseJson['data'];
     }
     return responseJson;
@@ -172,7 +179,11 @@ class ApiService {
   // ==========================================
 
   /// 3. Lấy danh sách Cửa hàng nhượng quyền (GET /api/v1/stores?page=0&size=100&search=)
-  static Future<List<Map<String, dynamic>>> fetchStores({String? search, int page = 0, int size = 100}) async {
+  static Future<List<Map<String, dynamic>>> fetchStores({
+    String? search,
+    int page = 0,
+    int size = 100,
+  }) async {
     var urlStr = '$_baseUrl/stores?page=$page&size=$size';
     if (search != null && search.trim().isNotEmpty) {
       urlStr += '&search=${Uri.encodeComponent(search.trim())}';
@@ -186,7 +197,9 @@ class ApiService {
   }
 
   /// 4. Tạo mới Cửa hàng nhượng quyền (POST /api/v1/stores)
-  static Future<Map<String, dynamic>> createStore(Map<String, dynamic> storeData) async {
+  static Future<Map<String, dynamic>> createStore(
+    Map<String, dynamic> storeData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/stores'),
@@ -207,7 +220,10 @@ class ApiService {
   }
 
   /// 5. Cập nhật Cửa hàng nhượng quyền (PUT /api/v1/stores/{id})
-  static Future<bool> updateStore(int storeId, Map<String, dynamic> storeData) async {
+  static Future<bool> updateStore(
+    int storeId,
+    Map<String, dynamic> storeData,
+  ) async {
     final response = await http
         .put(
           Uri.parse('$_baseUrl/stores/$storeId'),
@@ -242,7 +258,10 @@ class ApiService {
   }
 
   /// 7. Cập nhật Bếp trung tâm (PATCH /api/v1/kitchens/{kitchenId})
-  static Future<bool> updateKitchen(int kitchenId, Map<String, dynamic> kitchenData) async {
+  static Future<bool> updateKitchen(
+    int kitchenId,
+    Map<String, dynamic> kitchenData,
+  ) async {
     final response = await http
         .patch(
           Uri.parse('$_baseUrl/kitchens/$kitchenId'),
@@ -268,7 +287,11 @@ class ApiService {
   // ==========================================
 
   /// 8. Lấy danh sách Người dùng (GET /api/v1/users?page=0&size=100&search=)
-  static Future<List<Map<String, dynamic>>> fetchUsers({String? search, int page = 0, int size = 100}) async {
+  static Future<List<Map<String, dynamic>>> fetchUsers({
+    String? search,
+    int page = 0,
+    int size = 100,
+  }) async {
     var urlStr = '$_baseUrl/users?page=$page&size=$size';
     if (search != null && search.trim().isNotEmpty) {
       urlStr += '&search=${Uri.encodeComponent(search.trim())}';
@@ -282,7 +305,9 @@ class ApiService {
   }
 
   /// 9. Tạo mới Người dùng (POST /api/v1/users)
-  static Future<Map<String, dynamic>> createUser(Map<String, dynamic> userData) async {
+  static Future<Map<String, dynamic>> createUser(
+    Map<String, dynamic> userData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/users'),
@@ -292,7 +317,8 @@ class ApiService {
             'fullName': userData['fullName'],
             'roleId': userData['roleId'],
             if (userData['storeId'] != null) 'storeId': userData['storeId'],
-            if (userData['kitchenId'] != null) 'kitchenId': userData['kitchenId'],
+            if (userData['kitchenId'] != null)
+              'kitchenId': userData['kitchenId'],
           }),
         )
         .timeout(const Duration(seconds: 10));
@@ -320,7 +346,12 @@ class ApiService {
   // ==========================================
 
   /// 11. Lấy danh sách Sản phẩm (GET /api/v1/products?search=&page=0&size=100)
-  static Future<List<Map<String, dynamic>>> fetchProducts({String? search, int? categoryId, int page = 0, int size = 100}) async {
+  static Future<List<Map<String, dynamic>>> fetchProducts({
+    String? search,
+    int? categoryId,
+    int page = 0,
+    int size = 100,
+  }) async {
     var urlStr = '$_baseUrl/products?page=$page&size=$size';
     if (search != null && search.trim().isNotEmpty) {
       urlStr += '&search=${Uri.encodeComponent(search.trim())}';
@@ -337,7 +368,9 @@ class ApiService {
   }
 
   /// 12. Tạo mới Sản phẩm (POST /api/v1/products)
-  static Future<Map<String, dynamic>> createProduct(Map<String, dynamic> productData) async {
+  static Future<Map<String, dynamic>> createProduct(
+    Map<String, dynamic> productData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/products'),
@@ -357,7 +390,10 @@ class ApiService {
   }
 
   /// 13. Cập nhật Sản phẩm (PATCH /api/v1/products/{id})
-  static Future<bool> updateProduct(int productId, Map<String, dynamic> productData) async {
+  static Future<bool> updateProduct(
+    int productId,
+    Map<String, dynamic> productData,
+  ) async {
     final response = await http
         .patch(
           Uri.parse('$_baseUrl/products/$productId'),
@@ -391,7 +427,9 @@ class ApiService {
   }
 
   /// 15. Tạo mới Danh mục (POST /api/v1/categories)
-  static Future<Map<String, dynamic>> createCategory(Map<String, dynamic> categoryData) async {
+  static Future<Map<String, dynamic>> createCategory(
+    Map<String, dynamic> categoryData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/categories'),
@@ -408,7 +446,10 @@ class ApiService {
   }
 
   /// 16. Cập nhật Danh mục (PATCH /api/v1/categories/{id})
-  static Future<bool> updateCategory(int categoryId, Map<String, dynamic> categoryData) async {
+  static Future<bool> updateCategory(
+    int categoryId,
+    Map<String, dynamic> categoryData,
+  ) async {
     final response = await http
         .patch(
           Uri.parse('$_baseUrl/categories/$categoryId'),
@@ -439,7 +480,9 @@ class ApiService {
   }
 
   /// 18. Tạo mới Nguyên liệu (POST /api/v1/materials)
-  static Future<Map<String, dynamic>> createMaterial(Map<String, dynamic> materialData) async {
+  static Future<Map<String, dynamic>> createMaterial(
+    Map<String, dynamic> materialData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/materials'),
@@ -457,7 +500,10 @@ class ApiService {
   }
 
   /// 19. Cập nhật Nguyên liệu (PATCH /api/v1/materials/{id})
-  static Future<bool> updateMaterial(int materialId, Map<String, dynamic> materialData) async {
+  static Future<bool> updateMaterial(
+    int materialId,
+    Map<String, dynamic> materialData,
+  ) async {
     final response = await http
         .patch(
           Uri.parse('$_baseUrl/materials/$materialId'),
@@ -479,14 +525,21 @@ class ApiService {
   // ==========================================
 
   /// 20. Tạo đơn hàng nhượng quyền mới (POST /api/v1/orders)
-  static Future<Map<String, dynamic>> createStoreOrder(Map<String, dynamic> orderData) async {
+  static Future<Map<String, dynamic>> createStoreOrder(
+    Map<String, dynamic> orderData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/orders'),
           headers: _getAuthHeaders(),
           body: jsonEncode({
             'items': orderData['items'],
-            'deliveryDate': orderData['deliveryDate'] ?? DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T')[0],
+            'deliveryDate':
+                orderData['deliveryDate'] ??
+                DateTime.now()
+                    .add(const Duration(days: 1))
+                    .toIso8601String()
+                    .split('T')[0],
           }),
         )
         .timeout(const Duration(seconds: 10));
@@ -496,8 +549,13 @@ class ApiService {
   }
 
   /// 21. Lấy danh sách Đơn hàng của Cửa hàng hiện tại (GET /api/v1/orders/my)
-  static Future<List<Map<String, dynamic>>> fetchMyOrders({String? status, int page = 0, int size = 100}) async {
-    var urlStr = '$_baseUrl/orders/my?page=$page&size=$size&sortBy=orderId&sortDir=desc';
+  static Future<List<Map<String, dynamic>>> fetchMyOrders({
+    String? status,
+    int page = 0,
+    int size = 100,
+  }) async {
+    var urlStr =
+        '$_baseUrl/orders/my?page=$page&size=$size&sortBy=orderDate&sortDir=desc';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       urlStr += '&status=${status.toUpperCase()}';
     }
@@ -509,9 +567,65 @@ class ApiService {
     return _unwrapPageContent(res);
   }
 
+  /// 21b. Lấy danh sách Đơn hàng với dữ liệu Phân Trang (GET /api/v1/orders/my)
+  static Future<Map<String, dynamic>> fetchMyOrdersPaginated({
+    String? status,
+    int page = 0,
+    int size = 10,
+  }) async {
+    var urlStr =
+        '$_baseUrl/orders/my?page=$page&size=$size&sortBy=orderDate&sortDir=desc';
+    if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      urlStr += '&status=${status.toUpperCase()}';
+    }
+    final response = await http
+        .get(Uri.parse(urlStr), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+
+    if (data is Map<String, dynamic> && data.containsKey('content')) {
+      final List rawContent = data['content'] ?? [];
+      return {
+        'content': rawContent.cast<Map<String, dynamic>>(),
+        'totalPages': data['totalPages'] ?? 1,
+        'totalElements': data['totalElements'] ?? rawContent.length,
+        'number': data['number'] ?? page,
+        'size': data['size'] ?? size,
+        'first': data['first'] ?? (page == 0),
+        'last': data['last'] ?? true,
+      };
+    } else if (data is List) {
+      return {
+        'content': data.cast<Map<String, dynamic>>(),
+        'totalPages': 1,
+        'totalElements': data.length,
+        'number': page,
+        'size': size,
+        'first': page == 0,
+        'last': true,
+      };
+    }
+    return {
+      'content': <Map<String, dynamic>>[],
+      'totalPages': 1,
+      'totalElements': 0,
+      'number': page,
+      'size': size,
+      'first': true,
+      'last': true,
+    };
+  }
+
   /// 22. Lấy danh sách Tất cả đơn hàng hệ thống (GET /api/v1/orders - dành cho Coordinator)
-  static Future<List<Map<String, dynamic>>> fetchOrdersList({String? status, int page = 0, int size = 100}) async {
-    var urlStr = '$_baseUrl/orders?page=$page&size=$size&sortBy=orderDate&sortDir=desc';
+  static Future<List<Map<String, dynamic>>> fetchOrdersList({
+    String? status,
+    int page = 0,
+    int size = 100,
+  }) async {
+    var urlStr =
+        '$_baseUrl/orders?page=$page&size=$size&sortBy=orderDate&sortDir=desc';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       urlStr += '&status=${status.toUpperCase()}';
     }
@@ -555,7 +669,11 @@ class ApiService {
   // ==========================================
 
   /// 25. Lấy danh sách Kế hoạch sản xuất (GET /api/v1/production-plans)
-  static Future<List<Map<String, dynamic>>> fetchProductionPlans({String? status, int page = 0, int size = 100}) async {
+  static Future<List<Map<String, dynamic>>> fetchProductionPlans({
+    String? status,
+    int page = 0,
+    int size = 100,
+  }) async {
     var urlStr = '$_baseUrl/production-plans?page=$page&size=$size';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       urlStr += '&status=${status.toUpperCase()}';
@@ -582,11 +700,11 @@ class ApiService {
   }
 
   /// 27. Hoàn thành sản xuất / Xuất xưởng (POST /api/v1/production-plans/{id}/yield)
-  static Future<bool> finishProductionPlan(int planId, {List<Map<String, dynamic>>? outputs}) async {
-    final payload = {
-      'outputs': outputs ?? [],
-      'requestVersion': 1,
-    };
+  static Future<bool> finishProductionPlan(
+    int planId, {
+    List<Map<String, dynamic>>? outputs,
+  }) async {
+    final payload = {'outputs': outputs ?? [], 'requestVersion': 1};
     final response = await http
         .post(
           Uri.parse('$_baseUrl/production-plans/$planId/yield'),
@@ -599,12 +717,33 @@ class ApiService {
     return true;
   }
 
+  /// 27b. Cập nhật Trạng thái Lệnh sản xuất (PATCH /api/v1/production-plans/{id}/status)
+  static Future<bool> updateProductionPlanStatus(
+    int planId,
+    String status,
+  ) async {
+    final response = await http
+        .patch(
+          Uri.parse('$_baseUrl/production-plans/$planId/status'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({'status': status.toUpperCase()}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    _handleResponse(response);
+    return true;
+  }
+
   // ==========================================
   // 7. NHÓM CHỨC NĂNG GIAO HÀNG & LOGISTICS (SHIPMENTS)
   // ==========================================
 
   /// 28. Lấy danh sách Chuyến xe (GET /api/v1/shipments)
-  static Future<List<Map<String, dynamic>>> fetchShipmentsList({String? status, int page = 0, int size = 100}) async {
+  static Future<List<Map<String, dynamic>>> fetchShipmentsList({
+    String? status,
+    int page = 0,
+    int size = 100,
+  }) async {
     var urlStr = '$_baseUrl/shipments?page=$page&size=$size';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       urlStr += '&status=${status.toUpperCase()}';
@@ -618,12 +757,16 @@ class ApiService {
   }
 
   /// Alias fetchShipments() cho màn hình gọi ngắn gọn
-  static Future<List<Map<String, dynamic>>> fetchShipments({String? status}) => fetchShipmentsList(status: status);
+  static Future<List<Map<String, dynamic>>> fetchShipments({String? status}) =>
+      fetchShipmentsList(status: status);
 
   /// 29. Lấy chi tiết Chuyến xe (GET /api/v1/shipments/{id})
   static Future<Map<String, dynamic>> getShipmentDetails(int shipmentId) async {
     final response = await http
-        .get(Uri.parse('$_baseUrl/shipments/$shipmentId'), headers: _getAuthHeaders())
+        .get(
+          Uri.parse('$_baseUrl/shipments/$shipmentId'),
+          headers: _getAuthHeaders(),
+        )
         .timeout(const Duration(seconds: 10));
 
     final res = _handleResponse(response);
@@ -631,7 +774,9 @@ class ApiService {
   }
 
   /// 30. Tạo Chuyến xe giao hàng mới (POST /api/v1/shipments)
-  static Future<Map<String, dynamic>> createShipment(Map<String, dynamic> shipmentData) async {
+  static Future<Map<String, dynamic>> createShipment(
+    Map<String, dynamic> shipmentData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/shipments'),
@@ -675,10 +820,16 @@ class ApiService {
     return true;
   }
 
-  static Future<bool> startTransit(int shipmentId) => startShipmentTransit(shipmentId);
+  static Future<bool> startTransit(int shipmentId) =>
+      startShipmentTransit(shipmentId);
 
   /// 33. Xác nhận nhận hàng tại Điểm dừng (PATCH /api/v1/shipments/{id}/stops/{stopId}/confirm)
-  static Future<bool> confirmShipmentDelivery(int shipmentId, {int? stopId, String? feedbackNote, int qualityRating = 5}) async {
+  static Future<bool> confirmShipmentDelivery(
+    int shipmentId, {
+    int? stopId,
+    String? feedbackNote,
+    int qualityRating = 5,
+  }) async {
     int targetStopId = stopId ?? 0;
 
     // Nếu không truyền stopId, tự động fetch shipment details để tìm stopId của Cửa hàng hiện tại
@@ -700,7 +851,9 @@ class ApiService {
 
     final response = await http
         .patch(
-          Uri.parse('$_baseUrl/shipments/$shipmentId/stops/$targetStopId/confirm'),
+          Uri.parse(
+            '$_baseUrl/shipments/$shipmentId/stops/$targetStopId/confirm',
+          ),
           headers: _getAuthHeaders(),
           body: jsonEncode({
             'feedbackNote': feedbackNote ?? 'Hàng nhận đủ, nguyên tem',
@@ -718,7 +871,12 @@ class ApiService {
   // ==========================================
 
   /// 34. Lấy danh sách Hóa đơn (GET /api/v1/billing-statements)
-  static Future<List<Map<String, dynamic>>> fetchBillingStatements({String? status, int? storeId, int page = 0, int size = 100}) async {
+  static Future<List<Map<String, dynamic>>> fetchBillingStatements({
+    String? status,
+    int? storeId,
+    int page = 0,
+    int size = 100,
+  }) async {
     var urlStr = '$_baseUrl/billing-statements?page=$page&size=$size';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       urlStr += '&status=${status.toUpperCase()}';
@@ -735,14 +893,20 @@ class ApiService {
   }
 
   /// 35. Xuất hóa đơn hàng loạt (POST /api/v1/billing-statements/generate/batch)
-  static Future<Map<String, dynamic>> generateBatchBilling(Map<String, dynamic> batchData) async {
+  static Future<Map<String, dynamic>> generateBatchBilling(
+    Map<String, dynamic> batchData,
+  ) async {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/billing-statements/generate/batch'),
           headers: _getAuthHeaders(),
           body: jsonEncode({
-            'periodStart': batchData['periodStart'] ?? DateTime.now().toIso8601String().split('T')[0],
-            'periodEnd': batchData['periodEnd'] ?? DateTime.now().toIso8601String().split('T')[0],
+            'periodStart':
+                batchData['periodStart'] ??
+                DateTime.now().toIso8601String().split('T')[0],
+            'periodEnd':
+                batchData['periodEnd'] ??
+                DateTime.now().toIso8601String().split('T')[0],
             'cycleName': batchData['cycleName'] ?? 'Chu kỳ mới',
           }),
         )
@@ -753,14 +917,22 @@ class ApiService {
   }
 
   /// 36. Thanh toán Hóa đơn (PATCH /api/v1/billing-statements/{id}/pay)
-  static Future<bool> updateBillingStatementStatus(int statementId, String status, {int paymentMethodId = 1, String? transactionReference, String? note}) async {
+  static Future<bool> updateBillingStatementStatus(
+    int statementId,
+    String status, {
+    int paymentMethodId = 1,
+    String? transactionReference,
+    String? note,
+  }) async {
     final response = await http
         .patch(
           Uri.parse('$_baseUrl/billing-statements/$statementId/pay'),
           headers: _getAuthHeaders(),
           body: jsonEncode({
             'paymentMethodId': paymentMethodId,
-            'transactionReference': transactionReference ?? 'MOB-${DateTime.now().millisecondsSinceEpoch}',
+            'transactionReference':
+                transactionReference ??
+                'MOB-${DateTime.now().millisecondsSinceEpoch}',
             'note': note ?? 'Paid via Mobile app',
           }),
         )
@@ -789,7 +961,10 @@ class ApiService {
     try {
       if (currentUser!.role == 'ADMIN' || currentUser!.role == 'COORDINATOR') {
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/stores?size=1'), headers: _getAuthHeaders());
+          final res = await http.get(
+            Uri.parse('$_baseUrl/stores?size=1'),
+            headers: _getAuthHeaders(),
+          );
           final parsed = _handleResponse(res);
           final data = _unwrapData(parsed);
           if (data is Map && data.containsKey('totalElements')) {
@@ -800,7 +975,10 @@ class ApiService {
 
       if (currentUser!.role == 'ADMIN') {
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/users?size=1'), headers: _getAuthHeaders());
+          final res = await http.get(
+            Uri.parse('$_baseUrl/users?size=1'),
+            headers: _getAuthHeaders(),
+          );
           final parsed = _handleResponse(res);
           final data = _unwrapData(parsed);
           if (data is Map && data.containsKey('totalElements')) {
@@ -809,10 +987,16 @@ class ApiService {
         } catch (_) {}
       }
 
-      if (currentUser!.role != 'KITCHEN_STAFF' && currentUser!.role != 'ADMIN') {
+      if (currentUser!.role != 'KITCHEN_STAFF' &&
+          currentUser!.role != 'ADMIN') {
         try {
-          final endpoint = currentUser!.role == 'COORDINATOR' ? '/orders' : '/orders/my';
-          final res = await http.get(Uri.parse('$_baseUrl$endpoint?size=1'), headers: _getAuthHeaders());
+          final endpoint = currentUser!.role == 'COORDINATOR'
+              ? '/orders'
+              : '/orders/my';
+          final res = await http.get(
+            Uri.parse('$_baseUrl$endpoint?size=1'),
+            headers: _getAuthHeaders(),
+          );
           final parsed = _handleResponse(res);
           final data = _unwrapData(parsed);
           if (data is Map && data.containsKey('totalElements')) {
@@ -823,9 +1007,13 @@ class ApiService {
         } catch (_) {}
       }
 
-      if (currentUser!.role == 'COORDINATOR' || currentUser!.role == 'KITCHEN_STAFF') {
+      if (currentUser!.role == 'COORDINATOR' ||
+          currentUser!.role == 'KITCHEN_STAFF') {
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/shipments?size=1'), headers: _getAuthHeaders());
+          final res = await http.get(
+            Uri.parse('$_baseUrl/shipments?size=1'),
+            headers: _getAuthHeaders(),
+          );
           final parsed = _handleResponse(res);
           final data = _unwrapData(parsed);
           if (data is Map && data.containsKey('totalElements')) {
@@ -834,7 +1022,10 @@ class ApiService {
         } catch (_) {}
 
         try {
-          final res = await http.get(Uri.parse('$_baseUrl/production-plans?size=1'), headers: _getAuthHeaders());
+          final res = await http.get(
+            Uri.parse('$_baseUrl/production-plans?size=1'),
+            headers: _getAuthHeaders(),
+          );
           final parsed = _handleResponse(res);
           final data = _unwrapData(parsed);
           if (data is Map && data.containsKey('totalElements')) {
@@ -859,25 +1050,33 @@ class ApiService {
     try {
       if (currentUser!.role == 'KITCHEN_STAFF') {
         final list = await fetchShipmentsList(size: 5);
-        return list.map<Map<String, dynamic>>((s) => {
-          'type': 'SHIPMENT',
-          'id': s['shipmentId'] ?? s['id'],
-          'title': 'Chuyến xe: TRK-${s['shipmentId'] ?? s['id']}',
-          'subtitle': s['storeName'] ?? 'Cửa hàng #${s['storeId'] ?? ""}',
-          'status': s['status'] ?? 'PENDING',
-        }).toList();
+        return list
+            .map<Map<String, dynamic>>(
+              (s) => {
+                'type': 'SHIPMENT',
+                'id': s['shipmentId'] ?? s['id'],
+                'title': 'Chuyến xe: TRK-${s['shipmentId'] ?? s['id']}',
+                'subtitle': s['storeName'] ?? 'Cửa hàng #${s['storeId'] ?? ""}',
+                'status': s['status'] ?? 'PENDING',
+              },
+            )
+            .toList();
       } else {
         final list = currentUser!.role == 'COORDINATOR'
             ? await fetchOrdersList(size: 5)
             : await fetchMyOrders(size: 5);
 
-        return list.map<Map<String, dynamic>>((o) => {
-          'type': 'ORDER',
-          'id': o['orderId'] ?? o['id'],
-          'title': 'Mã ĐH: #${o['orderId'] ?? o['id']}',
-          'subtitle': o['storeName'] ?? 'Cửa hàng #${o['storeId'] ?? ""}',
-          'status': o['status'] ?? 'PENDING',
-        }).toList();
+        return list
+            .map<Map<String, dynamic>>(
+              (o) => {
+                'type': 'ORDER',
+                'id': o['orderId'] ?? o['id'],
+                'title': 'Mã ĐH: #${o['orderId'] ?? o['id']}',
+                'subtitle': o['storeName'] ?? 'Cửa hàng #${o['storeId'] ?? ""}',
+                'status': o['status'] ?? 'PENDING',
+              },
+            )
+            .toList();
       }
     } catch (e) {
       debugPrint("Failed to fetch recent activities: $e");
