@@ -43,21 +43,11 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
     setState(() => _isLoadingOrders = true);
 
     try {
-      final list = await ApiService.fetchOrdersList();
-      final storeId = ApiService.currentUser?.storeId;
+      final list = await ApiService.fetchMyOrders(status: _selectedOrderStatus);
 
       if (mounted) {
         setState(() {
-          var filtered = list;
-          if (storeId != null) {
-            filtered = list.where((o) => o['storeId'] == storeId).toList();
-          }
-
-          if (_selectedOrderStatus != "ALL") {
-            _orders = filtered.where((o) => o['status'] == _selectedOrderStatus).toList();
-          } else {
-            _orders = filtered;
-          }
+          _orders = list;
           _isLoadingOrders = false;
         });
       }
@@ -111,9 +101,9 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
     }
   }
 
-  Future<void> _confirmReceiptAction(int shipmentId) async {
+  Future<void> _confirmReceiptAction(int shipmentId, int stopId) async {
     try {
-      final ok = await ApiService.confirmShipmentDelivery(shipmentId);
+      final ok = await ApiService.confirmShipmentDelivery(shipmentId, stopId: stopId);
       if (ok) {
         _showSnackBar("Xác nhận nhận hàng thành công cho chuyến TRK-$shipmentId!", Colors.green);
         _loadShipments();
@@ -652,6 +642,11 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                     final date = s['createdAt'] ?? '';
                     final serviceId = s['ahamoveServiceId'] ?? 'SGN-BIKE';
                     final List stopsList = s['stops'] ?? [];
+                    final myStop = stopsList.firstWhere(
+                      (stop) => stop['storeId'] == ApiService.currentUser?.storeId,
+                      orElse: () => null,
+                    );
+                    final stopId = myStop != null ? (myStop['stopId'] ?? 0) : 0;
                     final List<int> orderIds = [];
                     for (var stop in stopsList) {
                       final List oIds = stop['storeOrderIds'] ?? [];
@@ -713,7 +708,7 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                                   backgroundColor: Colors.green,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
-                                onPressed: () => _confirmReceiptAction(id),
+                                onPressed: () => _confirmReceiptAction(id, stopId),
                                 child: const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -803,8 +798,8 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
 
     try {
       final payload = {
-        'storeId': ApiService.currentUser?.storeId ?? 1,
         'items': itemsPayload,
+        'deliveryDate': DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T')[0],
       };
 
       await ApiService.createStoreOrder(payload);
@@ -854,7 +849,7 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
                       final id = p['id'] as int;
                       final name = p['name'] ?? '';
                       final price = p['price'] ?? 0;
-                      final unit = p['unit'] ?? 'Đĩa';
+                      final unit = p['unit'] ?? 'PIECE';
                       final currentQty = _selectedQuantities[id] ?? 0;
 
                       return Container(
