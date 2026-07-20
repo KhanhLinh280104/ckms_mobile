@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../services/api_service.dart';
 
 class StoreStaffHubScreen extends StatefulWidget {
@@ -17,17 +19,46 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
   bool _isLoadingOrders = true;
   List<Map<String, dynamic>> _orders = [];
   String _selectedOrderStatus = "ALL";
+  int _currentPage = 0;
+  final int _pageSize = 10;
+  int _totalPages = 1;
+  int _totalElements = 0;
 
-  // --- Tab 2 & 3: Shipments State ---
+  // --- Tab 2: Shipments State ---
   bool _isLoadingShipments = true;
   List<Map<String, dynamic>> _shipments = [];
+
+  // --- Tab 3: Billing State ---
+  bool _isLoadingBilling = true;
+  List<Map<String, dynamic>> _billingStatements = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 2),
+    );
     _loadOrders();
     _loadShipments();
+    _loadBilling();
+  }
+
+  Future<void> _loadBilling() async {
+    if (!mounted) return;
+    setState(() => _isLoadingBilling = true);
+    try {
+      final list = await ApiService.fetchBillingStatements(storeId: ApiService.currentUser?.storeId);
+      if (mounted) {
+        setState(() {
+          _billingStatements = list;
+          _isLoadingBilling = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingBilling = false);
+    }
   }
 
   @override
@@ -43,26 +74,26 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
     setState(() => _isLoadingOrders = true);
 
     try {
-      final list = await ApiService.fetchOrdersList();
-      final storeId = ApiService.currentUser?.storeId;
+      final res = await ApiService.fetchMyOrdersPaginated(
+        status: _selectedOrderStatus,
+        page: _currentPage,
+        size: _pageSize,
+      );
 
       if (mounted) {
         setState(() {
-          var filtered = list;
-          if (storeId != null) {
-            filtered = list.where((o) => o['storeId'] == storeId).toList();
-          }
-
-          if (_selectedOrderStatus != "ALL") {
-            _orders = filtered.where((o) => o['status'] == _selectedOrderStatus).toList();
-          } else {
-            _orders = filtered;
-          }
+          _orders = (res['content'] as List? ?? []).cast<Map<String, dynamic>>();
+          _totalPages = res['totalPages'] ?? 1;
+          _totalElements = res['totalElements'] ?? 0;
+          _currentPage = res['number'] ?? 0;
           _isLoadingOrders = false;
         });
       }
     } catch (e) {
-      _showSnackBar("Lỗi tải đơn hàng: $e", Colors.redAccent);
+      if (mounted) {
+        _showSnackBar("Lỗi tải đơn hàng: $e", Colors.redAccent);
+        setState(() => _isLoadingOrders = false);
+      }
     }
   }
 
@@ -111,9 +142,9 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
     }
   }
 
-  Future<void> _confirmReceiptAction(int shipmentId) async {
+  Future<void> _confirmReceiptAction(int shipmentId, int stopId) async {
     try {
-      final ok = await ApiService.confirmShipmentDelivery(shipmentId);
+      final ok = await ApiService.confirmShipmentDelivery(shipmentId, stopId: stopId);
       if (ok) {
         _showSnackBar("Xác nhận nhận hàng thành công cho chuyến TRK-$shipmentId!", Colors.green);
         _loadShipments();
@@ -168,6 +199,9 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
   Color _getOrderStatusColor(String status) {
     switch (status.toUpperCase()) {
       case 'DELIVERED': return Colors.greenAccent;
+      case 'IN_TRANSIT':
+      case 'SHIPPING':
+      case 'DELIVERING': return Colors.purpleAccent;
       case 'APPROVED': return Colors.blueAccent;
       case 'SUBMITTED': return Colors.orangeAccent;
       case 'DRAFT': return Colors.grey;
@@ -179,6 +213,9 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
   String _getOrderStatusLabel(String status) {
     switch (status.toUpperCase()) {
       case 'DELIVERED': return 'Đã nhận hàng';
+      case 'IN_TRANSIT':
+      case 'SHIPPING':
+      case 'DELIVERING': return 'Đang vận chuyển';
       case 'APPROVED': return 'Đã duyệt';
       case 'SUBMITTED': return 'Chờ duyệt';
       case 'DRAFT': return 'Bản nháp';
@@ -230,8 +267,8 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 1.1),
           tabs: const [
             Tab(text: "ĐƠN HÀNG", icon: Icon(Icons.assignment_rounded, size: 18)),
-            Tab(text: "ĐANG GIAO", icon: Icon(Icons.location_on_rounded, size: 18)),
             Tab(text: "NHẬN HÀNG", icon: Icon(Icons.check_circle_outline_rounded, size: 18)),
+            Tab(text: "HÓA ĐƠN", icon: Icon(Icons.receipt_long_rounded, size: 18)),
           ],
         ),
       ),
@@ -240,8 +277,8 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
           controller: _tabController,
           children: [
             _buildOrdersTab(),
-            _buildDeliveringTab(),
             _buildConfirmReceiptTab(),
+            _buildBillingTab(),
           ],
         ),
       ),
@@ -255,6 +292,7 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
       {'val': 'DRAFT', 'label': 'Bản nháp'},
       {'val': 'SUBMITTED', 'label': 'Chờ duyệt'},
       {'val': 'APPROVED', 'label': 'Đã duyệt'},
+      {'val': 'IN_TRANSIT', 'label': 'Đang vận chuyển'},
       {'val': 'DELIVERED', 'label': 'Đã nhận'},
     ];
 
@@ -282,7 +320,10 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                   final isSelected = _selectedOrderStatus == filter['val'];
                   return InkWell(
                     onTap: () {
-                      setState(() => _selectedOrderStatus = filter['val']!);
+                      setState(() {
+                        _selectedOrderStatus = filter['val']!;
+                        _currentPage = 0;
+                      });
                       _loadOrders();
                     },
                     borderRadius: BorderRadius.circular(10),
@@ -334,7 +375,20 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                             final status = o['status'] ?? 'DRAFT';
                             final total = o['totalAmount'] ?? 0;
                             final date = o['orderDate'] ?? '';
-                            final List itemsList = o['items'] ?? [];
+                            final deliveryDate = o['deliveryDate'] ?? '';
+                            final storeName = o['storeName'] ?? '';
+                            final storePhone = o['storePhone'] ?? '';
+                            final List itemsList = o['orderDetails'] ?? o['items'] ?? [];
+
+                            // Tim shipment khop neu co
+                            final matchingShipment = _shipments.firstWhere((s) {
+                              final List stops = s['stops'] ?? [];
+                              for (var stop in stops) {
+                                final List oIds = stop['storeOrderIds'] ?? [];
+                                if (oIds.contains(id)) return true;
+                              }
+                              return s['ahamoveOrderId'] == o['batchCode'] || s['shipmentId'] == o['batchId'];
+                            }, orElse: () => <String, dynamic>{});
 
                             return Container(
                               padding: const EdgeInsets.all(18),
@@ -358,7 +412,10 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                                               style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                                             ),
                                             const SizedBox(height: 4),
-                                            Text("Ngày tạo: ${date.split('T')[0]}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                                            Text(
+                                              "Ngày tạo: ${date.toString().contains('T') ? date.toString().split('T')[0] : date}",
+                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -376,36 +433,169 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                                       )
                                     ],
                                   ),
+                                  
+                                  // Section store info & delivery date
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xff0F0F0F),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.white.withOpacity(0.04)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.calendar_today_rounded, color: Colors.orangeAccent, size: 13),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              "Ngày giao hàng: ${deliveryDate.toString().contains('T') ? deliveryDate.toString().split('T')[0] : (deliveryDate.toString().isNotEmpty ? deliveryDate : 'Chưa xếp')}",
+                                              style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                        if (storeName.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.storefront_rounded, color: Colors.grey, size: 13),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  "Cửa hàng: $storeName ${storePhone.isNotEmpty ? '($storePhone)' : ''}",
+                                                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ]
+                                      ],
+                                    ),
+                                  ),
+
                                   const Divider(color: Colors.white10, height: 20),
 
                                   // List Items
                                   const Text("CHI TIẾT MÓN ĐẶT:", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
                                   ...itemsList.map((item) {
-                                    final pName = item['name'] ?? 'Món';
+                                    final pName = item['productName'] ?? item['name'] ?? 'Món';
                                     final qty = item['quantity'] ?? 0;
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    final unit = item['unit'] ?? '';
+                                    final unitPrice = item['unitPrice'];
+                                    final subTotal = item['subTotal'];
+
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(vertical: 3),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xff0F0F0F),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.white.withOpacity(0.03)),
+                                      ),
+                                      child: Column(
                                         children: [
-                                          Text(pName, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                                          Text("x$qty", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Text(pName.toString(), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                              ),
+                                              Text(
+                                                "x$qty ${unit.toString().isNotEmpty ? unit : ''}",
+                                                style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.bold),
+                                              ),
+                                            ],
+                                          ),
+                                          if (unitPrice != null || subTotal != null) ...[
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                if (unitPrice != null)
+                                                  Text("Đơn giá: ${_formatCurrency(unitPrice)}", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                                                if (subTotal != null)
+                                                  Text("Thành tiền: ${_formatCurrency(subTotal)}", style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                                              ],
+                                            )
+                                          ]
                                         ],
                                       ),
                                     );
                                   }),
 
                                   const Divider(color: Colors.white10, height: 20),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text("Tổng số tiền:", style: TextStyle(color: Colors.grey, fontSize: 13)),
-                                      Text(
-                                        _formatCurrency(total),
-                                        style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
+                                  
+                                  // Detailed Fee Breakdown
+                                  if (o['orderFee'] != null) ...[
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text("Tiền món đặt (Order fee):", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                        Text(
+                                          _formatCurrency(o['orderFee']),
+                                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
+                                  
+                                  // Shipping Fee Row
+                                  (() {
+                                    final sFee = o['shippingFee'];
+                                    final bool hasFee = sFee != null &&
+                                        (sFee is num ? sFee > 0 : (int.tryParse(sFee.toString()) ?? 0) > 0);
+                                    return Column(
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            const Text("Tiền ship:", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                            Text(
+                                              hasFee ? _formatCurrency(sFee) : "Chưa có",
+                                              style: TextStyle(
+                                                color: hasFee ? Colors.orangeAccent : Colors.grey,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Text("Tổng số tiền:", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                                if (!hasFee) ...[
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    "(chưa tính ship)",
+                                                    style: TextStyle(color: Colors.orangeAccent.shade200, fontSize: 11, fontStyle: FontStyle.italic),
+                                                  ),
+                                                ]
+                                              ],
+                                            ),
+                                            Text(
+                                              _formatCurrency(total),
+                                              style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  })(),
+
+                                  // AhaMove Shipping Information Dropdown
+                                  _OrderShipmentDropdown(
+                                    order: o,
+                                    matchingShipment: matchingShipment.isNotEmpty ? matchingShipment : null,
+                                    onLaunchTracking: (link) => _launchAhamoveTracking(link),
                                   ),
 
                                   // Action (Send order)
@@ -436,187 +626,67 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                             );
                           },
                         ),
-            )
+            ),
+
+            // Pagination Controls
+            if (_totalPages > 0) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xff1A1A1A),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.04)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _currentPage > 0 ? Colors.orange : const Color(0xff2A2A2A),
+                        foregroundColor: _currentPage > 0 ? Colors.black : Colors.grey,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 0,
+                      ),
+                      onPressed: _currentPage > 0 && !_isLoadingOrders
+                          ? () {
+                              setState(() => _currentPage--);
+                              _loadOrders();
+                            }
+                          : null,
+                      icon: const Icon(Icons.arrow_back_ios_rounded, size: 12),
+                      label: const Text("Trước", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                    Text(
+                      "Trang ${_currentPage + 1} / $_totalPages\n(Tổng $_totalElements đơn)",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _currentPage < _totalPages - 1 ? Colors.orange : const Color(0xff2A2A2A),
+                        foregroundColor: _currentPage < _totalPages - 1 ? Colors.black : Colors.grey,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 0,
+                      ),
+                      onPressed: _currentPage < _totalPages - 1 && !_isLoadingOrders
+                          ? () {
+                              setState(() => _currentPage++);
+                              _loadOrders();
+                            }
+                          : null,
+                      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 12),
+                      label: const Text("Sau", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ]
           ],
         ),
       ),
-    );
-  }
-
-  // --- TAB 2: DELIVERING (Đang giao & Theo dõi hành trình AhaMove) ---
-  Widget _buildDeliveringTab() {
-    final deliveringShipments = _shipments.where((s) => s['status'] == 'IN_TRANSIT').toList();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: _isLoadingShipments
-          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
-          : deliveringShipments.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.near_me_outlined, color: Colors.grey.shade800, size: 60),
-                      const SizedBox(height: 12),
-                      Text("Không có đơn hàng nào đang đi giao", style: TextStyle(color: Colors.grey.shade500)),
-                    ],
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: deliveringShipments.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 14),
-                  itemBuilder: (context, index) {
-                    final s = deliveringShipments[index];
-                    final id = s['shipmentId'] ?? 0;
-                    final date = s['createdAt'] ?? '';
-                    final serviceId = s['ahamoveServiceId'] ?? 'SGN-BIKE';
-                    final driver = s['driverName'] ?? 'Tài xế AhaMove';
-                    final phone = s['driverPhone'] ?? '';
-                    final vehicle = s['vehicleInfo'] ?? '';
-                    final ahaOrder = s['ahamoveOrderId'] ?? '';
-                    final ahaStatus = s['ahamoveStatus'] ?? 'Đang giao';
-
-                    return Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff1A1A1A),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: Colors.white.withOpacity(0.04)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Chuyến giao: TRK-$id",
-                                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text("Khởi hành: ${date.split('T')[0]}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.blueAccent.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.blueAccent.withOpacity(0.2)),
-                                ),
-                                child: const Text(
-                                  "Đang vận chuyển",
-                                  style: TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              )
-                            ],
-                          ),
-                          const Divider(color: Colors.white10, height: 20),
-
-                          Row(
-                            children: [
-                              const Icon(Icons.delivery_dining_rounded, color: Colors.orange, size: 16),
-                              const SizedBox(width: 6),
-                              Text("Phương thức: AhaMove ($serviceId)", style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Driver Details Card
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.04),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.orange.withOpacity(0.1)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(Icons.person_pin_rounded, color: Colors.orange, size: 14),
-                                    SizedBox(width: 6),
-                                    Text("TÀI XẾ PHỤ TRÁCH GIAO HÀNG", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                                const Divider(color: Colors.white10, height: 16),
-                                _buildDetailRow("Họ tên tài xế:", driver),
-                                const SizedBox(height: 4),
-                                _buildDetailRow("Số điện thoại:", phone),
-                                const SizedBox(height: 4),
-                                _buildDetailRow("Phương tiện:", vehicle),
-                                const SizedBox(height: 4),
-                                _buildDetailRow("Mã vận đơn Aha:", ahaOrder),
-                                const SizedBox(height: 4),
-                                _buildDetailRow("Trạng thái Aha:", ahaStatus, valColor: Colors.orangeAccent),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 45,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Colors.orange, width: 1.2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: const Color(0xff1A1A1A),
-                                    title: const Text("Theo Dõi Hành Trình AhaMove", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text("Mã vận đơn AhaMove: ", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        Text(ahaOrder.isNotEmpty ? ahaOrder : 'AHA-KITCHEN-104', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 12),
-                                        const Text("Trạng thái từ đối tác:", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.circle, color: Colors.greenAccent, size: 8),
-                                            const SizedBox(width: 6),
-                                            Text(ahaStatus, style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        const Text("Đối tác AhaMove đang cập nhật định vị GPS thời gian thực của tài xế trên bản đồ vệ tinh.", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                                      ],
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text("ĐỒNG Ý", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                                      )
-                                    ],
-                                  ),
-                                );
-                              },
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.map_rounded, color: Colors.orange, size: 16),
-                                  SizedBox(width: 6),
-                                  Text("THEO DÕI HÀNH TRÌNH AHAMOVE", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                          )
-                        ],
-                      ),
-                    );
-                  },
-                ),
     );
   }
 
@@ -652,6 +722,11 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                     final date = s['createdAt'] ?? '';
                     final serviceId = s['ahamoveServiceId'] ?? 'SGN-BIKE';
                     final List stopsList = s['stops'] ?? [];
+                    final myStop = stopsList.firstWhere(
+                      (stop) => stop['storeId'] == ApiService.currentUser?.storeId,
+                      orElse: () => null,
+                    );
+                    final stopId = myStop != null ? (myStop['stopId'] ?? 0) : 0;
                     final List<int> orderIds = [];
                     for (var stop in stopsList) {
                       final List oIds = stop['storeOrderIds'] ?? [];
@@ -698,33 +773,67 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
                           ),
                           const Divider(color: Colors.white10, height: 20),
 
-                          Text("Đối tác giao hàng: AhaMove ($serviceId)", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                          const SizedBox(height: 6),
-                          Text("Đơn hàng đi kèm: #${orderIds.join(', #')}", style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                          // Logistics Info Box
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff0F0F0F),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.white.withOpacity(0.04)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildDetailRow("Mã vận đơn AhaMove:", s['ahamoveOrderId'] ?? 'AHA-TRK-$id'),
+                                const SizedBox(height: 6),
+                                _buildDetailRow("Phương tiện:", s['vehicleInfo'] ?? serviceId),
+                                const SizedBox(height: 6),
+                                _buildDetailRow("Trạng thái vận chuyển:", _getShipmentStatusLabel(status), valColor: _getShipmentStatusColor(status)),
+                              ],
+                            ),
+                          ),
 
-                          // Confirm action (Single clean button, no driver details)
-                          if (status == 'IN_TRANSIT') ...[
-                            const SizedBox(height: 18),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                onPressed: () => _confirmReceiptAction(id),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-                                    SizedBox(width: 8),
-                                    Text("XÁC NHẬN Đstyle NHẬN Đstyle HÀNG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                                  ],
+                          const SizedBox(height: 16),
+                          
+                          // 2 Side-by-Side Action Buttons: [ Left: Đã nhận hàng | Right: Theo dõi đơn ]
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () => _confirmReceiptAction(id, stopId),
+                                  icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                                  label: const Text(
+                                    "Đã nhận hàng",
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
                                 ),
                               ),
-                            )
-                          ]
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Colors.orange, width: 1.2),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () {
+                                    final trackingUrl = s['trackingUrl'] ?? s['ahamoveTrackingUrl'] ?? s['ahamoveOrderId'] ?? 'AHA-TRK-$id';
+                                    _launchAhamoveTracking(trackingUrl);
+                                  },
+                                  icon: const Icon(Icons.open_in_new_rounded, color: Colors.orange, size: 16),
+                                  label: const Text(
+                                    "Theo dõi đơn",
+                                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     );
@@ -740,6 +849,258 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
         Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
         Text(val, style: TextStyle(color: valColor, fontSize: 12)),
       ],
+    );
+  }
+
+  Future<void> _launchAhamoveTracking(String link) async {
+    if (link.isEmpty || link == 'null') return;
+
+    String urlStr = link.trim();
+    if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) {
+      urlStr = 'https://$urlStr';
+    }
+    final Uri uri = Uri.parse(urlStr);
+
+    try {
+      bool launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        launched = await launchUrl(uri, mode: LaunchMode.externalNonBrowserApplication);
+      }
+      if (!launched) {
+        _showCopyLinkDialog(urlStr);
+      }
+    } catch (_) {
+      _showCopyLinkDialog(urlStr);
+    }
+  }
+
+  void _showCopyLinkDialog(String url) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xff1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.link_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text("Link Theo Dõi AhaMove", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Không thể tự động mở trình duyệt. Bạn có thể sao chép liên kết bên dưới để dán vào trình duyệt:",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xff0F0F0F),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: SelectableText(
+                url,
+                style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Đóng", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: url));
+              Navigator.pop(ctx);
+              _showSnackBar("Đã sao chép đường dẫn theo dõi!", Colors.green);
+            },
+            icon: const Icon(Icons.copy_rounded, color: Colors.black, size: 16),
+            label: const Text("Sao chép Link", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPaymentDialog(Map<String, dynamic> statement) {
+    String paymentMethod = "BANK_TRANSFER";
+    final refController = TextEditingController();
+    final statementId = statement['statementId'] ?? statement['id'] ?? 0;
+    final totalAmount = statement['totalAmount'] ?? statement['orderTotal'] ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xff1A1A1A),
+              title: const Text("Thanh Toán Hóa Đơn", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Tổng tiền: ${totalAmount.toString()} VND", style: const TextStyle(color: Colors.greenAccent, fontSize: 15, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 14),
+                  const Text("Phương thức thanh toán", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    dropdownColor: const Color(0xff1A1A1A),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    value: paymentMethod,
+                    onChanged: (val) => setDlgState(() => paymentMethod = val!),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xff0F0F0F),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Chuyển khoản (VietQR)')),
+                      DropdownMenuItem(value: 'MOMO', child: Text('Ví MoMo')),
+                      DropdownMenuItem(value: 'CASH', child: Text('Tiền mặt')),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Text("Mã giao dịch / Ghi chú", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: refController,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: "Nhập mã giao dịch chuyển khoản...",
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      filled: true,
+                      fillColor: const Color(0xff0F0F0F),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    try {
+                      int methodId = 1;
+                      if (paymentMethod == 'MOMO') methodId = 2;
+                      if (paymentMethod == 'CASH') methodId = 3;
+
+                      final ok = await ApiService.updateBillingStatementStatus(
+                        statementId,
+                        'PAID',
+                        paymentMethodId: methodId,
+                        transactionReference: refController.text.trim(),
+                      );
+                      if (ok) {
+                        _showSnackBar("Xác nhận thanh toán thành công!", Colors.green);
+                        _loadBilling();
+                      }
+                    } catch (e) {
+                      _showSnackBar("Lỗi thanh toán: $e", Colors.redAccent);
+                    }
+                  },
+                  child: const Text("Xác nhận thanh toán", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBillingTab() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: _isLoadingBilling
+          ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+          : _billingStatements.isEmpty
+              ? Center(
+                  child: Text("Không có hóa đơn nào", style: TextStyle(color: Colors.grey.shade500)),
+                )
+              : ListView.separated(
+                  itemCount: _billingStatements.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final item = _billingStatements[index];
+                    final cycleName = item['cycleName'] ?? item['title'] ?? 'Kỳ thanh toán';
+                    final totalAmount = item['totalAmount'] ?? item['orderTotal'] ?? 0;
+                    final status = item['status'] ?? 'ISSUED';
+                    final isPaid = status == 'PAID';
+
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff1A1A1A),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withOpacity(0.04)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                cycleName,
+                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isPaid ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  isPaid ? "ĐÃ THANH TOÁN" : "CHỜ THANH TOÁN",
+                                  style: TextStyle(
+                                    color: isPaid ? Colors.greenAccent : Colors.orangeAccent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "${totalAmount.toString()} VND",
+                            style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          if (!isPaid) ...[
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                icon: const Icon(Icons.payment_rounded, color: Colors.white, size: 16),
+                                label: const Text("Thanh toán Hóa đơn", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                onPressed: () => _showPaymentDialog(item),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
@@ -759,6 +1120,7 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
   List<Map<String, dynamic>> _menuProducts = [];
   final Map<int, int> _selectedQuantities = {}; // productId -> quantity
   bool _isSaving = false;
+  DateTime _deliveryDate = DateTime.now().add(const Duration(days: 1));
 
   @override
   void initState() {
@@ -803,8 +1165,8 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
 
     try {
       final payload = {
-        'storeId': ApiService.currentUser?.storeId ?? 1,
         'items': itemsPayload,
+        'deliveryDate': _deliveryDate.toIso8601String().split('T')[0],
       };
 
       await ApiService.createStoreOrder(payload);
@@ -843,6 +1205,60 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
                 ),
                 const SizedBox(height: 14),
                 const Text("Chọn món ăn & số lượng cần đặt từ Bếp trung tâm:", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 12),
+
+                // Delivery Date Selector Row
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff0F0F0F),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withOpacity(0.04)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.event_rounded, color: Colors.orange, size: 18),
+                          SizedBox(width: 8),
+                          Text("Ngày giao hàng dự kiến:", style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _deliveryDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 30)),
+                            builder: (context, child) => Theme(
+                              data: ThemeData.dark().copyWith(
+                                colorScheme: const ColorScheme.dark(primary: Colors.orange, onPrimary: Colors.black, surface: Color(0xff1A1A1A)),
+                              ),
+                              child: child!,
+                            ),
+                          );
+                          if (picked != null) {
+                            setState(() => _deliveryDate = picked);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            "${_deliveryDate.day}/${_deliveryDate.month}/${_deliveryDate.year}",
+                            style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 16),
 
                 Expanded(
@@ -854,7 +1270,7 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
                       final id = p['id'] as int;
                       final name = p['name'] ?? '';
                       final price = p['price'] ?? 0;
-                      final unit = p['unit'] ?? 'Đĩa';
+                      final unit = p['unit'] ?? 'PIECE';
                       final currentQty = _selectedQuantities[id] ?? 0;
 
                       return Container(
@@ -933,6 +1349,155 @@ class _PlaceOrderBottomSheetState extends State<PlaceOrderBottomSheet> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _OrderShipmentDropdown extends StatefulWidget {
+  final Map<String, dynamic> order;
+  final Map<String, dynamic>? matchingShipment;
+  final Function(String) onLaunchTracking;
+
+  const _OrderShipmentDropdown({
+    required this.order,
+    this.matchingShipment,
+    required this.onLaunchTracking,
+  });
+
+  @override
+  State<_OrderShipmentDropdown> createState() => _OrderShipmentDropdownState();
+}
+
+class _OrderShipmentDropdownState extends State<_OrderShipmentDropdown> {
+  bool _isExpanded = false;
+
+  String? _getNonEmptyString(dynamic val) {
+    if (val == null) return null;
+    final str = val.toString().trim();
+    if (str.isEmpty || str == 'null') return null;
+    return str;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final o = widget.order;
+    final s = widget.matchingShipment;
+
+    final rawAhaStatus = _getNonEmptyString(o['ahamoveStatus']) ?? _getNonEmptyString(s?['ahamoveStatus']);
+    final rawDriverName = _getNonEmptyString(o['driverName']) ?? _getNonEmptyString(s?['driverName']);
+    final rawDriverPhone = _getNonEmptyString(o['driverPhone']) ?? _getNonEmptyString(s?['driverPhone']);
+    final rawTrackingLink = _getNonEmptyString(o['trackingLink']) ?? _getNonEmptyString(s?['trackingUrl']) ?? _getNonEmptyString(s?['ahamoveTrackingUrl']);
+
+    final ahaStatusDisplay = rawAhaStatus ?? "Chưa có";
+    
+    String driverDisplay = "Chưa có";
+    if (rawDriverName != null && rawDriverPhone != null) {
+      driverDisplay = "$rawDriverName ($rawDriverPhone)";
+    } else if (rawDriverName != null) {
+      driverDisplay = rawDriverName;
+    } else if (rawDriverPhone != null) {
+      driverDisplay = rawDriverPhone;
+    }
+
+    final bool hasTrackingLink = rawTrackingLink != null &&
+        (rawTrackingLink.startsWith('http://') || rawTrackingLink.startsWith('https://') || rawTrackingLink.contains('.'));
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xff0F0F0F),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: hasTrackingLink ? Colors.orange.withOpacity(0.3) : Colors.white.withOpacity(0.04)),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.local_shipping_rounded, color: hasTrackingLink ? Colors.orange : Colors.grey, size: 18),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "Thông tin Ship (AhaMove)",
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Icon(
+                    _isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: Colors.orange,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isExpanded) ...[
+            const Divider(color: Colors.white10, height: 1),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildRow("Trạng thái AhaMove:", ahaStatusDisplay, valColor: rawAhaStatus != null ? Colors.orangeAccent : Colors.grey),
+                  const SizedBox(height: 6),
+                  _buildRow("Tên tài xế:", driverDisplay, valColor: (rawDriverName != null || rawDriverPhone != null) ? Colors.white : Colors.grey),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: hasTrackingLink ? Colors.orange : Colors.grey.shade800,
+                          width: 1.2,
+                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        backgroundColor: hasTrackingLink ? Colors.orange.withOpacity(0.08) : Colors.white.withOpacity(0.02),
+                      ),
+                      onPressed: hasTrackingLink ? () => widget.onLaunchTracking(rawTrackingLink) : null,
+                      icon: Icon(
+                        Icons.open_in_new_rounded,
+                        color: hasTrackingLink ? Colors.orange : Colors.grey.shade600,
+                        size: 16,
+                      ),
+                      label: Text(
+                        hasTrackingLink ? "THEO DÕI ĐƠN AHAMOVE" : "CHƯA CÓ LINK THEO DÕI",
+                        style: TextStyle(
+                          color: hasTrackingLink ? Colors.orange : Colors.grey.shade600,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRow(String label, String val, {Color valColor = Colors.white70}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+        Flexible(
+          child: Text(
+            val,
+            textAlign: TextAlign.right,
+            style: TextStyle(color: valColor, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }

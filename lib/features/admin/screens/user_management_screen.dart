@@ -108,6 +108,31 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  List<String> _getRolePrivileges(String roleName, dynamic rawPrivileges) {
+    if (rawPrivileges is List && rawPrivileges.isNotEmpty) {
+      return rawPrivileges.map((p) {
+        if (p is Map) return (p['description'] ?? p['code'] ?? p.toString()).toString();
+        return p.toString();
+      }).toList();
+    }
+
+    final clean = roleName.toUpperCase().replaceAll('ROLE_', '');
+    switch (clean) {
+      case 'ADMIN':
+        return ['Quản trị người dùng', 'Quản lý cửa hàng & bếp', 'Quản lý hóa đơn'];
+      case 'COORDINATOR':
+        return ['Duyệt đơn hàng', 'Tạo & điều phối chuyến xe', 'Theo dõi bếp'];
+      case 'KITCHEN_STAFF':
+        return ['Nấu & hoàn thành lệnh', 'Đóng gói & xuất kho'];
+      case 'STORE_STAFF':
+        return ['Tạo đơn nhượng quyền', 'Xác nhận nhận hàng', 'Thanh toán hóa đơn'];
+      case 'MANAGER':
+        return ['Quản lý thực đơn sản phẩm', 'Quản lý công thức & nguyên liệu'];
+      default:
+        return ['Quyền truy cập tiêu chuẩn'];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -211,7 +236,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               final String fullName = user['fullName'] ?? 'Nhân sự';
                               final String username = user['username'] ?? '';
                               final String email = user['email'] ?? '';
-                              final String roleName = user['roleName'] ?? 'STORE_STAFF';
+                              final String roleName = user['role'] ?? user['roleName'] ?? 'STORE_STAFF';
                               final String? storeName = user['storeName'];
                               final String? kitchenName = user['kitchenName'];
                               final bool isActive = user['isActive'] ?? true;
@@ -301,9 +326,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                           
                                           // Additional Store/Kitchen location if mapped
                                           if (storeName != null || kitchenName != null) ...[
-                                            const SizedBox(height: 10),
+                                            const SizedBox(height: 8),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                               decoration: BoxDecoration(
                                                 color: Colors.white.withOpacity(0.02),
                                                 borderRadius: BorderRadius.circular(10),
@@ -315,7 +340,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                                   Icon(
                                                     storeName != null ? Icons.storefront_rounded : Icons.warehouse_rounded,
                                                     color: Colors.grey.shade500,
-                                                    size: 14,
+                                                    size: 13,
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Text(
@@ -330,6 +355,31 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                               ),
                                             ),
                                           ],
+                                          
+                                          // Display User Privileges / Authorities
+                                          const SizedBox(height: 8),
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            children: _getRolePrivileges(roleName, user['privileges'] ?? user['authorities']).map((priv) {
+                                              return Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                                                ),
+                                                child: Text(
+                                                  "• $priv",
+                                                  style: const TextStyle(
+                                                    color: Colors.orangeAccent,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
                                         ],
                                       ),
                                     ),

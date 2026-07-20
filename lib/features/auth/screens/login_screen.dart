@@ -54,9 +54,11 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           isSending = false;
           if (success) {
-            resetMessage = "Link đặt lại mật khẩu đã được gửi tới email của bạn.";
+            resetMessage =
+                "Link đặt lại mật khẩu đã được gửi tới email của bạn.";
           } else {
-            emailError = "Không thể gửi link đặt lại mật khẩu. Vui lòng thử lại.";
+            emailError =
+                "Không thể gửi link đặt lại mật khẩu. Vui lòng thử lại.";
           }
         });
       }
@@ -95,19 +97,19 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           isLoading = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Đăng nhập thành công với vai trò ${user.vietnameseRole}"),
+            content: Text(
+              "Đăng nhập thành công với vai trò ${user.vietnameseRole}",
+            ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 1),
           ),
         );
 
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(user: user),
-          ),
+          MaterialPageRoute(builder: (context) => DashboardScreen(user: user)),
         );
       }
     } catch (e) {
@@ -115,13 +117,10 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           isLoading = false;
         });
-        
+
         final errorMsg = e.toString().replaceAll("Exception: ", "");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMsg),
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(content: Text(errorMsg), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -155,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 40),
 
               const Text(
-                "XÁC ĐỊNH DANH TÍNH",
+                "ĐĂNG NHẬP",
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 28,
@@ -169,10 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text(
                 "Nhập thông tin xác thực để truy cập hệ thống",
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 13),
               ),
 
               const SizedBox(height: 45),
@@ -180,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  "ĐỊNH DANH (USERNAME)",
+                  "TÊN ĐĂNG NHẬP",
                   style: TextStyle(
                     color: Colors.grey.shade500,
                     fontWeight: FontWeight.bold,
@@ -205,8 +201,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-             
-
 
               const SizedBox(height: 25),
 
@@ -214,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "MÃ BẢO MẬT (PASSWORD)",
+                    "MẬT KHẨU",
                     style: TextStyle(
                       color: Colors.grey.shade500,
                       fontWeight: FontWeight.bold,
@@ -224,11 +218,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextButton(
                     onPressed: () {
                       setState(() {
-  showForgotPassword = !showForgotPassword;
-  resetMessage = null;
-  emailError = null;
-  emailController.clear();
-});
+                        showForgotPassword = !showForgotPassword;
+                        resetMessage = null;
+                        emailError = null;
+                        emailController.clear();
+                      });
                     },
                     child: const Text(
                       "Quên mật khẩu?",
@@ -249,9 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   fillColor: const Color(0xff1A1A1A),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+                      obscurePassword ? Icons.visibility_off : Icons.visibility,
                       color: Colors.orange,
                     ),
                     onPressed: () {
@@ -318,16 +310,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 10),
 
-                
-                  TextField(
-  controller: emailController,
-  onChanged: (_) {
-    if (emailError != null) {
-      setState(() {
-        emailError = null;
-      });
-    }
-  },
+                TextField(
+                  controller: emailController,
+                  onChanged: (_) {
+                    if (emailError != null) {
+                      setState(() {
+                        emailError = null;
+                      });
+                    }
+                  },
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: "Nhập email của bạn",
@@ -341,25 +332,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 if (emailError != null) ...[
-  const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-  Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.green.withOpacity(0.15),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.green),
-    ),
-    child: Text(
-      emailError!,
-      style: const TextStyle(
-        color: Colors.greenAccent,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-  ),
-],
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.green),
+                    ),
+                    child: Text(
+                      emailError!,
+                      style: const TextStyle(
+                        color: Colors.greenAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
 
                 if (resetMessage != null) ...[
                   const SizedBox(height: 20),
@@ -370,9 +361,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: BoxDecoration(
                       color: Colors.green.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.green,
-                      ),
+                      border: Border.all(color: Colors.green),
                     ),
                     child: Text(
                       resetMessage!,
@@ -383,7 +372,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ],
-                       
+
                 const SizedBox(height: 20),
 
                 SizedBox(
