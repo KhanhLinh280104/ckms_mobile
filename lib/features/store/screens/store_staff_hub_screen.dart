@@ -176,21 +176,39 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
   String _formatCurrency(dynamic amount) {
     if (amount == null) return "0 đ";
     try {
-      final int parsed = int.parse(amount.toString());
-      final String str = parsed.toString();
-      if (str.length <= 3) return "$str đ";
-      
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = str.length - 1; i >= 0; i--) {
-        buffer.write(str[i]);
-        count++;
-        if (count == 3 && i != 0) {
-          buffer.write('.');
-          count = 0;
+      final double val = double.parse(amount.toString());
+      if (val % 1 == 0) {
+        final int intVal = val.toInt();
+        final String str = intVal.toString();
+        if (str.length <= 3) return "$str đ";
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
         }
+        return "${buffer.toString().split('').reversed.join('')} đ";
+      } else {
+        final int intPart = val.truncate();
+        final String decimalPart = (val - intPart).toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+        final String str = intPart.toString();
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
+        }
+        final formattedInt = buffer.toString().split('').reversed.join('');
+        return "$formattedInt,$decimalPart đ";
       }
-      return "${buffer.toString().split('').reversed.join('')} đ";
     } catch (_) {
       return "$amount đ";
     }

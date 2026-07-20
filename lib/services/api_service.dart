@@ -1083,4 +1083,272 @@ class ApiService {
       return [];
     }
   }
+
+  // ==========================================
+  // NHÓM CÔNG THỨC (RECIPES)
+  // ==========================================
+
+  /// Lấy công thức đang hoạt động của sản phẩm (GET /api/v1/recipes/product/{productId}/active)
+  static Future<Map<String, dynamic>?> fetchActiveRecipe(int productId) async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/recipes/product/$productId/active'),
+          headers: _getAuthHeaders(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return null;
+  }
+
+  /// Tạo mới Công thức chế biến (POST /api/v1/recipes)
+  static Future<Map<String, dynamic>> createRecipe(Map<String, dynamic> recipeData) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/recipes'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode(recipeData),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  // ==========================================
+  // NHÓM QUẢN LÝ QUYỀN HẠN (PRIVILEGES) & VAI TRÒ (ROLES) & USER PROFILE & MAPS
+  // ==========================================
+
+  /// Lấy thông tin người dùng theo ID (GET /api/v1/users/{id})
+  static Future<Map<String, dynamic>?> fetchUserById(int userId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/users/$userId'),
+            headers: _getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = _handleResponse(response);
+      final rawData = (_unwrapData(data) as Map<String, dynamic>?) ?? {};
+      return rawData;
+    } catch (e) {
+      debugPrint("Failed to fetch user by ID ($userId): $e");
+      return null;
+    }
+  }
+
+  /// Lấy tất cả Quyền hạn (GET /api/v1/privileges)
+  static Future<List<Map<String, dynamic>>> fetchPrivileges() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/privileges'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+    if (data is List) {
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// Lấy chi tiết Quyền hạn (GET /api/v1/privileges/{id})
+  static Future<Map<String, dynamic>?> fetchPrivilegeById(int id) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/privileges/$id'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return null;
+  }
+
+  /// Tạo mới Quyền hạn (POST /api/v1/privileges)
+  static Future<Map<String, dynamic>> createPrivilege(String code, String description) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/privileges'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'code': code.trim(),
+            'description': description.trim(),
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Cập nhật Quyền hạn (PUT /api/v1/privileges/{id})
+  static Future<Map<String, dynamic>> updatePrivilege(int id, String code, String description) async {
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/privileges/$id'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'code': code.trim(),
+            'description': description.trim(),
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Xóa Quyền hạn (DELETE /api/v1/privileges/{id})
+  static Future<bool> deletePrivilege(int id) async {
+    final response = await http
+        .delete(Uri.parse('$_baseUrl/privileges/$id'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    _handleResponse(response);
+    return true;
+  }
+
+  // ==========================================
+  // NHÓM CHỨC NĂNG VAI TRÒ (ROLES API)
+  // ==========================================
+
+  /// Lấy chi tiết Vai trò theo ID (GET /api/v1/roles/{id})
+  static Future<Map<String, dynamic>?> fetchRoleById(int id) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/roles/$id'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return _unwrapData(res) as Map<String, dynamic>?;
+  }
+
+  /// Tạo mới Vai trò (POST /api/v1/roles)
+  static Future<Map<String, dynamic>> createRole(String roleName, List<int> privilegeIds) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/roles'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'roleName': roleName.trim(),
+            'privilegeIds': privilegeIds,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Cập nhật Vai trò (PUT /api/v1/roles/{id})
+  static Future<Map<String, dynamic>> updateRole(int id, String roleName, List<int> privilegeIds) async {
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/roles/$id'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'roleName': roleName.trim(),
+            'privilegeIds': privilegeIds,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Xóa Vai trò (DELETE /api/v1/roles/{id})
+  static Future<bool> deleteRole(int id) async {
+    final response = await http
+        .delete(Uri.parse('$_baseUrl/roles/$id'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    _handleResponse(response);
+    return true;
+  }
+
+  /// Gán quyền cho Vai trò (POST /api/v1/roles/{roleId}/privileges)
+  static Future<Map<String, dynamic>> assignPrivilegesToRole(int roleId, List<int> privilegeIds) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/roles/$roleId/privileges'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode(privilegeIds),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Gỡ quyền khỏi Vai trò (DELETE /api/v1/roles/{roleId}/privileges)
+  static Future<Map<String, dynamic>> removePrivilegesFromRole(int roleId, List<int> privilegeIds) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/roles/$roleId/privileges'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode(privilegeIds),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  // --- Goong Map APIs ---
+
+  /// Goong Place Autocomplete API
+  static Future<List<Map<String, dynamic>>> goongAutoComplete(String input) async {
+    final String apiKey = dotenv.maybeGet('GOONG_API_KEY') ?? 'YOUR_GOONG_API_KEY';
+    final url = Uri.parse('https://rsapi.goong.io/Place/AutoComplete?api_key=$apiKey&input=${Uri.encodeComponent(input)}');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['predictions'] is List) {
+          return (data['predictions'] as List).cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (e) {
+      debugPrint("Goong Autocomplete error: $e");
+    }
+    return [];
+  }
+
+  /// Goong Place Detail API
+  static Future<Map<String, dynamic>?> goongPlaceDetail(String placeId) async {
+    final String apiKey = dotenv.maybeGet('GOONG_API_KEY') ?? 'YOUR_GOONG_API_KEY';
+    final url = Uri.parse('https://rsapi.goong.io/Place/Detail?api_key=$apiKey&place_id=${Uri.encodeComponent(placeId)}');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['result'] as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      debugPrint("Goong Place Detail error: $e");
+    }
+    return null;
+  }
+
+  /// Goong Directions API
+  static Future<Map<String, dynamic>?> goongDirections(String origin, String destination) async {
+    final String apiKey = dotenv.maybeGet('GOONG_API_KEY') ?? 'YOUR_GOONG_API_KEY';
+    final url = Uri.parse('https://rsapi.goong.io/Direction?origin=${Uri.encodeComponent(origin)}&destination=${Uri.encodeComponent(destination)}&vehicle=car&api_key=$apiKey');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      debugPrint("Goong Directions error: $e");
+    }
+    return null;
+  }
 }

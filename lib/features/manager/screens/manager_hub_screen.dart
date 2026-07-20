@@ -297,21 +297,39 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
   String _formatCurrency(dynamic amount) {
     if (amount == null) return "0 đ";
     try {
-      final int parsed = int.parse(amount.toString());
-      final String str = parsed.toString();
-      if (str.length <= 3) return "$str đ";
-      
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = str.length - 1; i >= 0; i--) {
-        buffer.write(str[i]);
-        count++;
-        if (count == 3 && i != 0) {
-          buffer.write('.');
-          count = 0;
+      final double val = double.parse(amount.toString());
+      if (val % 1 == 0) {
+        final int intVal = val.toInt();
+        final String str = intVal.toString();
+        if (str.length <= 3) return "$str đ";
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
         }
+        return "${buffer.toString().split('').reversed.join('')} đ";
+      } else {
+        final int intPart = val.truncate();
+        final String decimalPart = (val - intPart).toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+        final String str = intPart.toString();
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
+        }
+        final formattedInt = buffer.toString().split('').reversed.join('');
+        return "$formattedInt,$decimalPart đ";
       }
-      return "${buffer.toString().split('').reversed.join('')} đ";
     } catch (_) {
       return "$amount đ";
     }
@@ -436,7 +454,6 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
                             final desc = p['description'] ?? 'Chưa cập nhật mô tả';
                             final price = p['price'] ?? 0;
                             final unit = p['unit'] ?? 'PIECE';
-                            final catName = p['category']?['name'] ?? 'Chưa phân loại';
 
                             return InkWell(
                               onTap: () => _showProductDetailModal(p),
@@ -448,59 +465,103 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(color: Colors.white.withOpacity(0.04)),
                                 ),
-                                child: Row(
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Expanded(
-                                                child: Text(
-                                                  name,
-                                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                                                ),
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      name,
+                                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                                  (() {
+                                                    String resolvedCat = p['categoryName'] ?? p['category']?['name'] ?? '';
+                                                    if (resolvedCat.isEmpty && p['categoryId'] != null) {
+                                                      final matchCat = _categories.firstWhere(
+                                                        (c) => c['id'] == p['categoryId'],
+                                                        orElse: () => {},
+                                                      );
+                                                      resolvedCat = matchCat['name'] ?? '';
+                                                    }
+                                                    if (resolvedCat.isEmpty) resolvedCat = 'Chưa phân loại';
+                                                    return Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.orange.withOpacity(0.12),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.category_rounded, color: Colors.orange, size: 10),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            resolvedCat,
+                                                            style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  })(),
+                                                ],
                                               ),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orange.withOpacity(0.06),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: Text(
-                                                  catName,
-                                                  style: const TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(desc, style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                              const SizedBox(height: 10),
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    _formatCurrency(price),
+                                                    style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold),
+                                                  ),
+                                                  Text(
+                                                    "Đơn vị: $unit",
+                                                    style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                                                  ),
+                                                ],
+                                              )
                                             ],
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(desc, style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                _formatCurrency(price),
-                                                style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold),
-                                              ),
-                                              Text(
-                                                "Đơn vị: $unit",
-                                                style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-                                              ),
-                                            ],
-                                          )
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_note_rounded, color: Colors.grey, size: 20),
-                                      onPressed: () => _showProductForm(product: p),
-                                    )
+                                    const Divider(color: Colors.white10, height: 16),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(color: Colors.orange, width: 1),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                          onPressed: () => _showRecipeModal(p),
+                                          icon: const Icon(Icons.menu_book_rounded, color: Colors.orange, size: 14),
+                                          label: const Text("Công thức", style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          constraints: const BoxConstraints(),
+                                          padding: const EdgeInsets.all(4),
+                                          icon: const Icon(Icons.edit_note_rounded, color: Colors.grey, size: 20),
+                                          onPressed: () => _showProductForm(product: p),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
@@ -948,6 +1009,22 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
                 Row(
                   children: [
                     Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.orange),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        icon: const Icon(Icons.menu_book_rounded, color: Colors.orange, size: 18),
+                        label: const Text("Xem / Tạo công thức", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showRecipeModal(product);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
@@ -955,7 +1032,7 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
                         icon: const Icon(Icons.edit_rounded, color: Colors.black, size: 18),
-                        label: const Text("Chỉnh sửa sản phẩm & Công thức", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: const Text("Chỉnh sửa", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
                         onPressed: () {
                           Navigator.pop(context);
                           _showProductForm(product: product);
@@ -967,6 +1044,238 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showRecipeModal(Map<String, dynamic> product) {
+    final int productId = product['id'] ?? product['productId'] ?? 0;
+    final String productName = product['name'] ?? 'Sản phẩm';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xff1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return FutureBuilder<Map<String, dynamic>?>(
+              future: ApiService.fetchActiveRecipe(productId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Container(
+                    height: 250,
+                    padding: const EdgeInsets.all(24),
+                    child: const Center(
+                      child: CircularProgressIndicator(color: Colors.orange),
+                    ),
+                  );
+                }
+
+                final recipeData = snapshot.data;
+                final bool hasRecipe = recipeData != null && recipeData.isNotEmpty;
+                final List recipeDetails = hasRecipe ? (recipeData['recipeDetails'] ?? []) : [];
+                final String instructions = hasRecipe ? (recipeData['instructions'] ?? 'Không có hướng dẫn') : '';
+                final int version = hasRecipe ? (recipeData['version'] ?? 1) : 1;
+                final dynamic recipeYield = hasRecipe ? (recipeData['yield'] ?? 1) : 1;
+                final String creator = hasRecipe ? (recipeData['createdByUserName'] ?? 'Manager') : '';
+
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.85,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.menu_book_rounded, color: Colors.orange, size: 22),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  "CÔNG THỨC CHẾ BIẾN",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (hasRecipe)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  "v$version (Active)",
+                                  style: const TextStyle(
+                                    color: Colors.orange,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "Sản phẩm: $productName",
+                          style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        if (hasRecipe && creator.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text("Tạo bởi: $creator", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                        ],
+                        const Divider(color: Colors.white10, height: 24),
+
+                        if (!hasRecipe) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff0F0F0F),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.white.withOpacity(0.04)),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.menu_book_outlined, color: Colors.grey.shade700, size: 40),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "Chưa có công thức hoạt động cho món này",
+                                  style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ] else ...[
+                          Text(
+                            "SẢN LƯỢNG THÀNH PHẨM (YIELD): $recipeYield món/suất",
+                            style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            "ĐỊNH MỨC NGUYÊN LIỆU CẦN DÙNG:",
+                            style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          ),
+                          const SizedBox(height: 8),
+                          ...recipeDetails.map((det) {
+                            final matName = det['materialName'] ?? 'Nguyên liệu';
+                            final qty = det['quantityNeeded'] ?? 0;
+                            final unit = det['materialUnit'] ?? 'KG';
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xff0F0F0F),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withOpacity(0.03)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(matName, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                  Text(
+                                    "$qty $unit",
+                                    style: const TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          const SizedBox(height: 14),
+                          Text(
+                            "HƯỚNG DẪN CHẾ BIẾN:",
+                            style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xff0F0F0F),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              instructions,
+                              style: TextStyle(color: Colors.grey.shade300, fontSize: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _showCreateRecipeSheet(product);
+                            },
+                            icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.black, size: 18),
+                            label: Text(
+                              hasRecipe ? "TẠO CÔNG THỨC MỚI (V${version + 1})" : "TẠO CÔNG THỨC MỚI",
+                              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showCreateRecipeSheet(Map<String, dynamic> product) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xff1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return CreateRecipeSheet(
+          product: product,
+          materials: _materials,
+          onSave: () {
+            _loadProducts();
+          },
         );
       },
     );
@@ -1003,9 +1312,36 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
     if (widget.product != null) {
       _nameController.text = widget.product!['name'] ?? '';
       _descController.text = widget.product!['description'] ?? '';
-      _priceController.text = widget.product!['price']?.toString() ?? '0';
+      
+      final rawPrice = widget.product!['price'];
+      if (rawPrice != null) {
+        final double? parsedVal = double.tryParse(rawPrice.toString());
+        if (parsedVal != null) {
+          _priceController.text = parsedVal % 1 == 0 ? parsedVal.toInt().toString() : parsedVal.toString();
+        } else {
+          _priceController.text = rawPrice.toString();
+        }
+      } else {
+        _priceController.text = '0';
+      }
+
       _unitController.text = widget.product!['unit'] ?? 'PIECE';
-      _selectedCategoryId = widget.product!['category']?['id'];
+      
+      final int? catIdFromProduct = widget.product!['categoryId'] ?? widget.product!['category']?['id'];
+      if (catIdFromProduct != null) {
+        _selectedCategoryId = catIdFromProduct;
+      } else if (widget.categories.isNotEmpty) {
+        final catNameFromProduct = widget.product!['categoryName'] ?? widget.product!['category']?['name'];
+        if (catNameFromProduct != null) {
+          final match = widget.categories.firstWhere(
+            (c) => c['name'] == catNameFromProduct,
+            orElse: () => {},
+          );
+          if (match.containsKey('id')) {
+            _selectedCategoryId = match['id'] as int?;
+          }
+        }
+      }
       
       final List existingRecipe = widget.product!['recipe'] ?? widget.product!['materials'] ?? [];
       _recipeItems = List<Map<String, dynamic>>.from(existingRecipe);
@@ -1292,7 +1628,13 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("CÔNG THỨC NGUYÊN LIỆU (ĐỊNH MỨC)", style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10)),
+                  Expanded(
+                    child: Text(
+                      "CÔNG THỨC NGUYÊN LIỆU (ĐỊNH MỨC)",
+                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   TextButton.icon(
                     onPressed: _addRecipeItemDialog,
                     icon: const Icon(Icons.add_rounded, color: Colors.orange, size: 16),
@@ -1300,6 +1642,39 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                   ),
                 ],
               ),
+              if (widget.product != null) ...[
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.orange, width: 1),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    ),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: const Color(0xff1A1A1A),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        ),
+                        builder: (ctx) => CreateRecipeSheet(
+                          product: widget.product!,
+                          materials: _allMaterials,
+                          onSave: widget.onSave,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.menu_book_rounded, color: Colors.orange, size: 16),
+                    label: const Text(
+                      "Tạo / Cập nhật Công thức chuẩn (API)",
+                      style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 6),
               _recipeItems.isEmpty
                   ? Container(
@@ -1649,6 +2024,348 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
                 ),
               ),
               const SizedBox(height: 28),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- Create Recipe Sheet ---
+class CreateRecipeSheet extends StatefulWidget {
+  final Map<String, dynamic> product;
+  final List<Map<String, dynamic>> materials;
+  final VoidCallback onSave;
+
+  const CreateRecipeSheet({
+    super.key,
+    required this.product,
+    required this.materials,
+    required this.onSave,
+  });
+
+  @override
+  State<CreateRecipeSheet> createState() => _CreateRecipeSheetState();
+}
+
+class _CreateRecipeSheetState extends State<CreateRecipeSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _instructionsController = TextEditingController();
+  final _yieldController = TextEditingController(text: '1');
+  bool _isSubmitting = false;
+
+  final List<Map<String, dynamic>> _recipeDetails = [];
+
+  void _addMaterialDialog() {
+    if (widget.materials.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Chưa có nguyên liệu nào trong hệ thống!")),
+      );
+      return;
+    }
+
+    int? selectedMaterialId = widget.materials.first['id'] as int?;
+    final qtyController = TextEditingController(text: '1.0');
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xff1A1A1A),
+              title: const Text(
+                "Chọn nguyên liệu công thức",
+                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Nguyên liệu", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<int>(
+                    dropdownColor: const Color(0xff1A1A1A),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    value: selectedMaterialId,
+                    onChanged: (val) => setDlgState(() => selectedMaterialId = val),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xff0F0F0F),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    items: widget.materials.map((m) {
+                      return DropdownMenuItem<int>(
+                        value: m['id'],
+                        child: Text("${m['name']} (${m['unit'] ?? 'KG'})"),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text("Định mức số lượng cần dùng", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: "Ví dụ: 1.5",
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      filled: true,
+                      fillColor: const Color(0xff0F0F0F),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  onPressed: () {
+                    if (selectedMaterialId != null) {
+                      final mat = widget.materials.firstWhere(
+                        (m) => m['id'] == selectedMaterialId,
+                        orElse: () => {},
+                      );
+                      final qty = double.tryParse(qtyController.text) ?? 1.0;
+                      setState(() {
+                        _recipeDetails.add({
+                          'materialId': selectedMaterialId,
+                          'materialName': mat['name'] ?? 'Nguyên liệu',
+                          'quantityNeeded': qty,
+                          'materialUnit': mat['unit'] ?? 'KG',
+                        });
+                      });
+                    }
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text(
+                    "Thêm nguyên liệu",
+                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _submitRecipe() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_recipeDetails.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Vui lòng thêm ít nhất 1 nguyên liệu vào công thức!")),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    final int productId = widget.product['id'] ?? widget.product['productId'] ?? 0;
+    final int recipeYield = int.tryParse(_yieldController.text) ?? 1;
+
+    final payload = {
+      'productId': productId,
+      'yield': recipeYield,
+      'instructions': _instructionsController.text.trim(),
+      'recipeDetails': _recipeDetails.map((det) => {
+        'materialId': det['materialId'],
+        'quantityNeeded': det['quantityNeeded'],
+      }).toList(),
+    };
+
+    try {
+      await ApiService.createRecipe(payload);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Tạo công thức chế biến thành công!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        widget.onSave();
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Lỗi tạo công thức: ${e.toString()}"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 24,
+        right: 24,
+        top: 20,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade700,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  const Icon(Icons.note_add_rounded, color: Colors.orange, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "TẠO CÔNG THỨC: ${widget.product['name'] ?? ''}",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              Text("SẢN LƯỢNG THÀNH PHẨM (YIELD)", style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _yieldController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                validator: (val) => val == null || val.trim().isEmpty ? "Vui lòng nhập sản lượng" : null,
+                decoration: InputDecoration(
+                  hintText: "VD: 1",
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xff0F0F0F),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Text("HƯỚNG DẪN CHẾ BIẾN", style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _instructionsController,
+                maxLines: 3,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: "Nhập các bước sơ chế, chế biến...",
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xff0F0F0F),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      "DANH SÁCH NGUYÊN LIỆU CẦN DÙNG",
+                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addMaterialDialog,
+                    icon: const Icon(Icons.add_rounded, color: Colors.orange, size: 16),
+                    label: const Text("Thêm nguyên liệu", style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              _recipeDetails.isEmpty
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: const Color(0xff0F0F0F), borderRadius: BorderRadius.circular(12)),
+                      child: Text("Chưa có nguyên liệu nào được chọn", style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontStyle: FontStyle.italic)),
+                    )
+                  : Column(
+                      children: _recipeDetails.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final det = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(color: const Color(0xff0F0F0F), borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  det['materialName'] ?? 'Nguyên liệu',
+                                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text("${det['quantityNeeded']} ${det['materialUnit']}", style: const TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _recipeDetails.removeAt(idx);
+                                      });
+                                    },
+                                    child: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 18),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: _isSubmitting ? null : _submitRecipe,
+                  child: _isSubmitting
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                      : const Text("LƯU CÔNG THỨC CHẾ BIẾN", style: TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),

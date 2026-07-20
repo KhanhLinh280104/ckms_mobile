@@ -27,6 +27,7 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
   // Kitchen Progress Tab State
   bool _isLoadingKitchenPlans = true;
   List<Map<String, dynamic>> _kitchenPlans = [];
+  String _selectedKitchenPlanStatus = "ALL";
 
   @override
   void initState() {
@@ -43,7 +44,11 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
       final plans = await ApiService.fetchProductionPlans();
       if (mounted) {
         setState(() {
-          _kitchenPlans = plans;
+          if (_selectedKitchenPlanStatus != "ALL") {
+            _kitchenPlans = plans.where((p) => p['status'] == _selectedKitchenPlanStatus).toList();
+          } else {
+            _kitchenPlans = plans;
+          }
           _isLoadingKitchenPlans = false;
         });
       }
@@ -374,21 +379,39 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
   String _formatCurrency(dynamic amount) {
     if (amount == null) return "0 đ";
     try {
-      final int parsed = int.parse(amount.toString());
-      final String str = parsed.toString();
-      if (str.length <= 3) return "$str đ";
-      
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = str.length - 1; i >= 0; i--) {
-        buffer.write(str[i]);
-        count++;
-        if (count == 3 && i != 0) {
-          buffer.write('.');
-          count = 0;
+      final double val = double.parse(amount.toString());
+      if (val % 1 == 0) {
+        final int intVal = val.toInt();
+        final String str = intVal.toString();
+        if (str.length <= 3) return "$str đ";
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
         }
+        return "${buffer.toString().split('').reversed.join('')} đ";
+      } else {
+        final int intPart = val.truncate();
+        final String decimalPart = (val - intPart).toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+        final String str = intPart.toString();
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
+        }
+        final formattedInt = buffer.toString().split('').reversed.join('');
+        return "$formattedInt,$decimalPart đ";
       }
-      return "${buffer.toString().split('').reversed.join('')} đ";
     } catch (_) {
       return "$amount đ";
     }
@@ -848,6 +871,13 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
   }
 
   Widget _buildKitchenProgressTab() {
+    final statusFilters = [
+      {'val': 'ALL', 'label': 'Tất cả'},
+      {'val': 'READY_TO_PRODUCE', 'label': 'Chờ sản xuất'},
+      {'val': 'PRODUCING', 'label': 'Đang nấu'},
+      {'val': 'COMPLETED', 'label': 'Đã xong'},
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -869,12 +899,62 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // Status Filter Bar
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: statusFilters.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final filter = statusFilters[index];
+                final isSelected = _selectedKitchenPlanStatus == filter['val'];
+                return InkWell(
+                  onTap: () {
+                    setState(() => _selectedKitchenPlanStatus = filter['val']!);
+                    _loadKitchenPlans();
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.orange : const Color(0xff1A1A1A),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isSelected ? Colors.orange : Colors.white.withOpacity(0.04)),
+                    ),
+                    child: Center(
+                      child: Text(
+                        filter['label']!,
+                        style: TextStyle(
+                          color: isSelected ? Colors.black : Colors.grey.shade400,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
           Expanded(
             child: _isLoadingKitchenPlans
                 ? const Center(child: CircularProgressIndicator(color: Colors.orange))
                 : _kitchenPlans.isEmpty
-                    ? Center(child: Text("Bếp chưa có kế hoạch sản xuất nào", style: TextStyle(color: Colors.grey.shade500)))
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.restaurant_menu_rounded, color: Colors.grey.shade800, size: 60),
+                            const SizedBox(height: 12),
+                            Text("Bếp chưa có kế hoạch sản xuất nào", style: TextStyle(color: Colors.grey.shade500)),
+                          ],
+                        ),
+                      )
                     : ListView.separated(
                         itemCount: _kitchenPlans.length,
                         separatorBuilder: (context, index) => const SizedBox(height: 12),
@@ -884,16 +964,25 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                           final planName = plan['planName'] ?? 'Lệnh sản xuất #$id';
                           final status = plan['status'] ?? 'READY_TO_PRODUCE';
                           final kitchenName = plan['kitchenName'] ?? 'Bếp trung tâm';
+                          final code = plan['batchCode'] ?? '';
+                          final date = plan['createdAt'] ?? '';
                           final List items = plan['items'] ?? [];
 
-                          Color statusColor = Colors.orangeAccent;
-                          String statusText = "SẴN SÀNG";
-                          if (status == 'PRODUCING') {
-                            statusColor = Colors.blueAccent;
-                            statusText = "ĐANG NẤU BẾP";
-                          } else if (status == 'COMPLETED') {
-                            statusColor = Colors.greenAccent;
-                            statusText = "HOÀN THÀNH";
+                          Color statusColor = Colors.grey;
+                          String statusText = status;
+                          switch (status.toString().toUpperCase()) {
+                            case 'COMPLETED':
+                              statusColor = Colors.greenAccent;
+                              statusText = "Đã hoàn thành";
+                              break;
+                            case 'PRODUCING':
+                              statusColor = Colors.blueAccent;
+                              statusText = "Đang sản xuất";
+                              break;
+                            case 'READY_TO_PRODUCE':
+                              statusColor = Colors.orangeAccent;
+                              statusText = "Sẵn sàng sản xuất";
+                              break;
                           }
 
                           return Container(
@@ -909,33 +998,48 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(planName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(planName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                                          if (code.toString().isNotEmpty || date.toString().isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              "${code.toString().isNotEmpty ? 'Mã lô: $code • ' : ''}${date.toString().contains('T') ? 'Ngày: ${date.toString().split('T')[0]}' : ''}",
+                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 2),
+                                          Text("Phụ trách: $kitchenName", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                                        ],
+                                      ),
+                                    ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: statusColor.withOpacity(0.1),
+                                        color: statusColor.withOpacity(0.08),
                                         borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: statusColor.withOpacity(0.2)),
                                       ),
                                       child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text("Địa điểm: $kitchenName", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                                 const Divider(color: Colors.white10, height: 20),
-                                const Text("MÓN ĂN ĐANG SẢN XUẤT:", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                                const Text("MÓN ĂN CẦN SẢN XUẤT:", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                                 const SizedBox(height: 6),
                                 ...items.map((it) {
                                   final name = it['productName'] ?? it['name'] ?? 'Sản phẩm';
                                   final qty = it['plannedQuantity'] ?? it['quantity'] ?? 0;
                                   final unit = it['unit'] ?? 'PIECE';
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    padding: const EdgeInsets.symmetric(vertical: 3),
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(name, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                                        Text("$qty $unit", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                        Text(name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                        Text("$qty $unit", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                                       ],
                                     ),
                                   );
