@@ -12,7 +12,7 @@ class ApiService {
 
   // 2. Hàm xử lý bóc tách cấu hình thông minh
   static String _resolveBaseUrl() {
-    if (kIsWeb) return ''; // Docker Nginx Reverse Proxy cho bản Web
+    if (kIsWeb) return '/api/v1'; // Docker Nginx Reverse Proxy cho bản Web (/api/ -> proxy_pass)
 
     if (_apiEnv.isNotEmpty) return _apiEnv;
 

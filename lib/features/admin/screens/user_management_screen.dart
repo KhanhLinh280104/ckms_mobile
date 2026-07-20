@@ -601,9 +601,11 @@ class _AddUserFormState extends State<AddUserForm> {
                           borderSide: BorderSide.none,
                         ),
                       ),
-                      items: _roles.map((r) {
-                        final id = r['roleId'] as int;
-                        final name = r['roleName'] as String;
+                      items: _roles
+                          .where((r) => r['roleId'] != null && r['roleName'] != null)
+                          .map((r) {
+                        final id = (r['roleId'] as num).toInt();
+                        final name = r['roleName'].toString();
                         // Map displays beautifully
                         String disp = name.replaceAll('ROLE_', '').replaceAll('_', ' ');
                         return DropdownMenuItem<int>(
@@ -638,9 +640,11 @@ class _AddUserFormState extends State<AddUserForm> {
                             borderSide: BorderSide.none,
                           ),
                         ),
-                        items: _stores.map((s) {
-                          final id = s['id'] as int;
-                          final name = s['name'] as String;
+                        items: _stores
+                            .where((s) => (s['id'] ?? s['storeId']) != null)
+                            .map((s) {
+                          final id = ((s['id'] ?? s['storeId']) as num).toInt();
+                          final name = (s['name'] ?? s['storeName'] ?? 'Cửa hàng $id').toString();
                           return DropdownMenuItem<int>(
                             value: id,
                             child: Text(name),
@@ -674,9 +678,11 @@ class _AddUserFormState extends State<AddUserForm> {
                             borderSide: BorderSide.none,
                           ),
                         ),
-                        items: _kitchens.map((k) {
-                          final id = k['kitchenId'] as int;
-                          final name = k['kitchenName'] as String;
+                        items: _kitchens
+                            .where((k) => k['kitchenId'] != null)
+                            .map((k) {
+                          final id = (k['kitchenId'] as num).toInt();
+                          final name = (k['kitchenName'] ?? k['name'] ?? 'Bếp $id').toString();
                           return DropdownMenuItem<int>(
                             value: id,
                             child: Text(name),
