@@ -474,14 +474,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 14,
       mainAxisSpacing: 14,
-      childAspectRatio: 1.4,
+      childAspectRatio: 1.2,
       children: statCards,
     );
   }
 
   Widget _buildStatCard(String title, dynamic value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xff1A1A1A),
         borderRadius: BorderRadius.circular(20),
@@ -541,7 +541,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         {'name': 'Nhân sự', 'icon': Icons.people_alt_rounded, 'color': Colors.redAccent, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen(initialTab: 0)))},
         {'name': 'Cửa hàng', 'icon': Icons.storefront_rounded, 'color': Colors.amber, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen(initialTab: 1)))},
         {'name': 'Hóa đơn', 'icon': Icons.payments_rounded, 'color': Colors.orange, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen(initialTab: 2)))},
-        {'name': 'Báo cáo', 'icon': Icons.analytics_rounded, 'color': Colors.purpleAccent, 'action': () => _showFeatureUnderDevelopment('Báo cáo')},
+        {'name': 'Báo cáo', 'icon': Icons.analytics_rounded, 'color': Colors.purpleAccent, 'action': () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminHubScreen(initialTab: 3)))},
       ]);
     } else if (widget.user.role == 'MANAGER') {
       actions.addAll([
