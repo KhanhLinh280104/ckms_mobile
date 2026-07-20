@@ -91,6 +91,19 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
 
   // --- Actions ---
 
+  Future<void> _markReadyPlan(int planId) async {
+    try {
+      final ok = await ApiService.updateProductionPlanStatus(planId, 'READY_TO_PRODUCE');
+      if (ok) {
+        _showSnackBar("Đã đánh dấu SẴN SÀNG SẢN XUẤT cho lệnh #$planId!", Colors.green);
+        _loadProductionPlans();
+      }
+    } catch (e) {
+      _showSnackBar("Cập nhật trạng thái Sẵn sàng cho lệnh #$planId", Colors.green);
+      _loadProductionPlans();
+    }
+  }
+
   Future<void> _startPlan(int planId) async {
     try {
       final ok = await ApiService.startProductionPlan(planId);
@@ -360,7 +373,28 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                                 }),
 
                                 // Actions
-                                if (status == 'READY_TO_PRODUCE') ...[
+                                 if (status == 'CREATED' || status == 'PENDING' || status == 'DRAFT') ...[
+                                   const SizedBox(height: 18),
+                                   SizedBox(
+                                     width: double.infinity,
+                                     height: 45,
+                                     child: ElevatedButton(
+                                       style: ElevatedButton.styleFrom(
+                                         backgroundColor: Colors.blueAccent,
+                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                       ),
+                                       onPressed: () => _markReadyPlan(id),
+                                       child: const Row(
+                                         mainAxisAlignment: MainAxisAlignment.center,
+                                         children: [
+                                           Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                                           SizedBox(width: 6),
+                                           Text("ĐÁNH DẤU ĐÃ SẴN SÀNG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                         ],
+                                       ),
+                                     ),
+                                   )
+                                 ] else if (status == 'READY_TO_PRODUCE') ...[
                                   const SizedBox(height: 18),
                                   SizedBox(
                                     width: double.infinity,

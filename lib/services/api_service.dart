@@ -491,7 +491,7 @@ class ApiService {
 
   /// 21. Lấy danh sách Đơn hàng của Cửa hàng hiện tại (GET /api/v1/orders/my)
   static Future<List<Map<String, dynamic>>> fetchMyOrders({String? status, int page = 0, int size = 100}) async {
-    var urlStr = '$_baseUrl/orders/my?page=$page&size=$size&sortBy=orderId&sortDir=desc';
+    var urlStr = '$_baseUrl/orders/my?page=$page&size=$size&sortBy=orderDate&sortDir=desc';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       urlStr += '&status=${status.toUpperCase()}';
     }
@@ -501,6 +501,52 @@ class ApiService {
 
     final res = _handleResponse(response);
     return _unwrapPageContent(res);
+  }
+
+  /// 21b. Lấy danh sách Đơn hàng với dữ liệu Phân Trang (GET /api/v1/orders/my)
+  static Future<Map<String, dynamic>> fetchMyOrdersPaginated({String? status, int page = 0, int size = 10}) async {
+    var urlStr = '$_baseUrl/orders/my?page=$page&size=$size&sortBy=orderDate&sortDir=desc';
+    if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      urlStr += '&status=${status.toUpperCase()}';
+    }
+    final response = await http
+        .get(Uri.parse(urlStr), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+
+    if (data is Map<String, dynamic> && data.containsKey('content')) {
+      final List rawContent = data['content'] ?? [];
+      return {
+        'content': rawContent.cast<Map<String, dynamic>>(),
+        'totalPages': data['totalPages'] ?? 1,
+        'totalElements': data['totalElements'] ?? rawContent.length,
+        'number': data['number'] ?? page,
+        'size': data['size'] ?? size,
+        'first': data['first'] ?? (page == 0),
+        'last': data['last'] ?? true,
+      };
+    } else if (data is List) {
+      return {
+        'content': data.cast<Map<String, dynamic>>(),
+        'totalPages': 1,
+        'totalElements': data.length,
+        'number': page,
+        'size': size,
+        'first': page == 0,
+        'last': true,
+      };
+    }
+    return {
+      'content': <Map<String, dynamic>>[],
+      'totalPages': 1,
+      'totalElements': 0,
+      'number': page,
+      'size': size,
+      'first': true,
+      'last': true,
+    };
   }
 
   /// 22. Lấy danh sách Tất cả đơn hàng hệ thống (GET /api/v1/orders - dành cho Coordinator)
@@ -586,6 +632,20 @@ class ApiService {
           Uri.parse('$_baseUrl/production-plans/$planId/yield'),
           headers: _getAuthHeaders(),
           body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    _handleResponse(response);
+    return true;
+  }
+
+  /// 27b. Cập nhật Trạng thái Lệnh sản xuất (PATCH /api/v1/production-plans/{id}/status)
+  static Future<bool> updateProductionPlanStatus(int planId, String status) async {
+    final response = await http
+        .patch(
+          Uri.parse('$_baseUrl/production-plans/$planId/status'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({'status': status.toUpperCase()}),
         )
         .timeout(const Duration(seconds: 10));
 

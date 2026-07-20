@@ -438,67 +438,71 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
                             final unit = p['unit'] ?? 'PIECE';
                             final catName = p['category']?['name'] ?? 'Chưa phân loại';
 
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xff1A1A1A),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white.withOpacity(0.04)),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                name,
-                                                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                            return InkWell(
+                              onTap: () => _showProductDetailModal(p),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xff1A1A1A),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.white.withOpacity(0.04)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  name,
+                                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                                ),
                                               ),
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.orange.withOpacity(0.06),
-                                                borderRadius: BorderRadius.circular(6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange.withOpacity(0.06),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  catName,
+                                                  style: const TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold),
+                                                ),
                                               ),
-                                              child: Text(
-                                                catName,
-                                                style: const TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(desc, style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                _formatCurrency(price),
+                                                style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(desc, style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              _formatCurrency(price),
-                                              style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.bold),
-                                            ),
-                                            Text(
-                                              "Đơn vị: $unit",
-                                              style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-                                            ),
-                                          ],
-                                        )
-                                      ],
+                                              Text(
+                                                "Đơn vị: $unit",
+                                                style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                                              ),
+                                            ],
+                                          )
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_note_rounded, color: Colors.grey, size: 20),
-                                    onPressed: () => _showProductForm(product: p),
-                                  )
-                                ],
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_note_rounded, color: Colors.grey, size: 20),
+                                      onPressed: () => _showProductForm(product: p),
+                                    )
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -719,7 +723,6 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
       {'val': 'ALL', 'label': 'Tất cả'},
       {'val': 'ISSUED', 'label': 'Chờ thu'},
       {'val': 'PAID', 'label': 'Đã thu'},
-      {'val': 'OVERDUE', 'label': 'Quá hạn'},
     ];
 
     return Padding(
@@ -845,6 +848,129 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
       ),
     );
   }
+
+  void _showProductDetailModal(Map<String, dynamic> product) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xff1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        final name = product['name'] ?? 'Sản phẩm';
+        final desc = product['description'] ?? 'Chưa có mô tả';
+        final price = product['price'] ?? 0;
+        final unit = product['unit'] ?? 'PIECE';
+        final catName = product['category']?['name'] ?? product['categoryName'] ?? 'Món chính';
+        final List recipe = product['recipe'] ?? product['materials'] ?? [];
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+            maxWidth: 600,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Text(catName, style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(desc, style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(_formatCurrency(price), style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 16),
+                    Text("Đơn vị: $unit", style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                  ],
+                ),
+                const Divider(color: Colors.white10, height: 32),
+                
+                // Recipe section
+                Row(
+                  children: [
+                    const Icon(Icons.receipt_long_rounded, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    const Text("CÔNG THỨC CHẾ BIẾN (ĐỊNH MỨC NGUYÊN LIỆU):", style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                recipe.isEmpty
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: const Color(0xff0F0F0F), borderRadius: BorderRadius.circular(12)),
+                        child: Text("Chưa bổ sung định mức công thức cho món ăn này.", style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontStyle: FontStyle.italic)),
+                      )
+                    : Column(
+                        children: recipe.map((item) {
+                          final matName = item['materialName'] ?? item['name'] ?? 'Nguyên liệu';
+                          final qty = item['quantity'] ?? item['amount'] ?? 0;
+                          final matUnit = item['unit'] ?? 'KG';
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(color: const Color(0xff0F0F0F), borderRadius: BorderRadius.circular(12)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(matName, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                Text("$qty $matUnit", style: const TextStyle(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        icon: const Icon(Icons.edit_rounded, color: Colors.black, size: 18),
+                        label: const Text("Chỉnh sửa sản phẩm & Công thức", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showProductForm(product: product);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 // --- Product Form Sheet (Create/Edit Product) ---
@@ -868,6 +994,9 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
   int? _selectedCategoryId;
   bool _isSubmitting = false;
 
+  List<Map<String, dynamic>> _recipeItems = [];
+  List<Map<String, dynamic>> _allMaterials = [];
+
   @override
   void initState() {
     super.initState();
@@ -877,7 +1006,111 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
       _priceController.text = widget.product!['price']?.toString() ?? '0';
       _unitController.text = widget.product!['unit'] ?? 'PIECE';
       _selectedCategoryId = widget.product!['category']?['id'];
+      
+      final List existingRecipe = widget.product!['recipe'] ?? widget.product!['materials'] ?? [];
+      _recipeItems = List<Map<String, dynamic>>.from(existingRecipe);
     }
+    _loadMaterials();
+  }
+
+  Future<void> _loadMaterials() async {
+    try {
+      final list = await ApiService.fetchMaterials();
+      if (mounted) {
+        setState(() {
+          _allMaterials = list;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _addRecipeItemDialog() {
+    if (_allMaterials.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Chưa có nguyên liệu nào trong hệ thống!")));
+      return;
+    }
+
+    int? selectedMaterialId = _allMaterials.first['id'] as int?;
+    final qtyController = TextEditingController(text: '0.1');
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xff1A1A1A),
+              title: const Text("Thêm nguyên liệu công thức", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Chọn nguyên liệu", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<int>(
+                    dropdownColor: const Color(0xff1A1A1A),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    value: selectedMaterialId,
+                    onChanged: (val) => setDlgState(() => selectedMaterialId = val),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xff0F0F0F),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    items: _allMaterials.map((m) {
+                      return DropdownMenuItem<int>(
+                        value: m['id'],
+                        child: Text("${m['name']} (${m['unit'] ?? 'KG'})"),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text("Định mức số lượng", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: "Ví dụ: 0.2",
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      filled: true,
+                      fillColor: const Color(0xff0F0F0F),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  onPressed: () {
+                    if (selectedMaterialId != null) {
+                      final mat = _allMaterials.firstWhere((m) => m['id'] == selectedMaterialId, orElse: () => {});
+                      final qty = double.tryParse(qtyController.text) ?? 0.1;
+                      setState(() {
+                        _recipeItems.add({
+                          'materialId': selectedMaterialId,
+                          'materialName': mat['name'] ?? 'Nguyên liệu',
+                          'quantity': qty,
+                          'unit': mat['unit'] ?? 'KG',
+                        });
+                      });
+                    }
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text("Thêm vào công thức", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -904,13 +1137,14 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
       'price': int.tryParse(_priceController.text) ?? 0,
       'unit': _unitController.text.trim(),
       'categoryId': _selectedCategoryId,
+      'recipe': _recipeItems,
     };
 
     try {
       if (widget.product != null) {
         final ok = await ApiService.updateProduct(widget.product!['id'], payload);
         if (ok && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cập nhật thực đơn thành công!"), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Cập nhật thực đơn & công thức thành công!"), backgroundColor: Colors.green));
           widget.onSave();
           Navigator.pop(context);
         }
@@ -1052,6 +1286,63 @@ class _ProductFormSheetState extends State<ProductFormSheet> {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 20),
+
+              // Recipe builder section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("CÔNG THỨC NGUYÊN LIỆU (ĐỊNH MỨC)", style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10)),
+                  TextButton.icon(
+                    onPressed: _addRecipeItemDialog,
+                    icon: const Icon(Icons.add_rounded, color: Colors.orange, size: 16),
+                    label: const Text("Thêm nguyên liệu", style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              _recipeItems.isEmpty
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: const Color(0xff0F0F0F), borderRadius: BorderRadius.circular(12)),
+                      child: Text("Chưa chọn nguyên liệu cấu thành công thức", style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontStyle: FontStyle.italic)),
+                    )
+                  : Column(
+                      children: _recipeItems.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final item = entry.value;
+                        final matName = item['materialName'] ?? item['name'] ?? 'Nguyên liệu';
+                        final qty = item['quantity'] ?? 0;
+                        final unit = item['unit'] ?? 'KG';
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(color: const Color(0xff0F0F0F), borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(matName, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                              Row(
+                                children: [
+                                  Text("$qty $unit", style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 18),
+                                    onPressed: () {
+                                      setState(() {
+                                        _recipeItems.removeAt(idx);
+                                      });
+                                    },
+                                  )
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
               const SizedBox(height: 28),
 
               SizedBox(
