@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/api_service.dart';
+import '../widgets/ai_briefing_bottom_sheet.dart';
+import '../widgets/ai_chat_modal.dart';
 
 class AdminReportScreen extends StatefulWidget {
   const AdminReportScreen({super.key});
@@ -360,6 +362,8 @@ class _AdminReportScreenState extends State<AdminReportScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
+          _buildAiCockpitBanner(),
+          const SizedBox(height: 20),
           _buildGroup1KPI(),
           const SizedBox(height: 24),
           _buildGroup2Revenue(),
@@ -375,6 +379,98 @@ class _AdminReportScreenState extends State<AdminReportScreen> {
           _buildGroup7Personnel(),
           const SizedBox(height: 24),
           _buildGroup8Alerts(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiCockpitBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF31106A), Color(0xFF1E1B4B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8B5CF6).withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '✨ AI Executive Cockpit',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Phân tích & chuẩn đoán 8 Nhóm theo thời gian thực',
+                      style: TextStyle(color: Color(0xFFDDD6FE), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => AiBriefingBottomSheet.show(context),
+                  icon: const Icon(Icons.analytics_outlined, size: 16),
+                  label: const Text('Chuẩn Đoán AI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => AiChatModal.show(context),
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                  label: const Text('Hỏi Đáp AI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFF8B5CF6)),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
