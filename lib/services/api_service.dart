@@ -12,7 +12,13 @@ class ApiService {
 
   // 2. Hàm xử lý bóc tách cấu hình thông minh
   static String _resolveBaseUrl() {
-    if (kIsWeb) return '/api/v1'; // Docker Nginx Reverse Proxy cho bản Web (/api/ -> proxy_pass)
+    if (kIsWeb) {
+      // Production (Docker + Nginx): dùng path tương đối /api/v1
+      // Dev (flutter run -d chrome): đọc từ .env hoặc fallback localhost
+      if (_apiEnv.isNotEmpty) return _apiEnv;
+      final webUrl = dotenv.maybeGet('API_URL_WEB');
+      return webUrl ?? 'http://localhost:8081/api/v1';
+    }
 
     if (_apiEnv.isNotEmpty) return _apiEnv;
 
