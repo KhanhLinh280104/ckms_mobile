@@ -11,7 +11,8 @@ class CoordinatorHubScreen extends StatefulWidget {
   State<CoordinatorHubScreen> createState() => _CoordinatorHubScreenState();
 }
 
-class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with SingleTickerProviderStateMixin {
+class _CoordinatorHubScreenState extends State<CoordinatorHubScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   // Orders Tab State
@@ -32,7 +33,11 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
     _ensureUserFullName();
     _loadOrders();
     _loadShipments();
@@ -46,10 +51,13 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
       if (uId != null && uId > 0) {
         final profile = await ApiService.fetchUserById(uId);
         if (profile != null) {
-          final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+          final fn =
+              profile['fullName'] ?? profile['name'] ?? profile['username'];
           if (fn != null && fn.toString().isNotEmpty && mounted) {
             setState(() {
-              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+              ApiService.currentUser = ApiService.currentUser?.copyWith(
+                name: fn.toString(),
+              );
             });
           }
         }
@@ -78,7 +86,10 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
             _kitchenPlans = plans.where((p) {
               final s = (p['status'] ?? '').toString().toUpperCase();
               if (_selectedKitchenPlanStatus == 'PLANNED') {
-                return s == 'PLANNED' || s == 'CREATED' || s == 'PENDING' || s == 'DRAFT';
+                return s == 'PLANNED' ||
+                    s == 'CREATED' ||
+                    s == 'PENDING' ||
+                    s == 'DRAFT';
               } else if (_selectedKitchenPlanStatus == 'READY_TO_PRODUCE') {
                 return s == 'READY_TO_PRODUCE';
               } else if (_selectedKitchenPlanStatus == 'IN_PRODUCTION') {
@@ -109,10 +120,20 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Mã AhaMove: $url"), backgroundColor: Colors.orange));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Mã AhaMove: $url"),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Mã AhaMove: $url"), backgroundColor: Colors.orange));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Mã AhaMove: $url"),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 
@@ -128,7 +149,9 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
     });
 
     try {
-      final orders = await ApiService.fetchOrdersList(status: _selectedOrderStatus);
+      final orders = await ApiService.fetchOrdersList(
+        status: _selectedOrderStatus,
+      );
       if (mounted) {
         setState(() {
           _orders = orders;
@@ -142,7 +165,9 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Lỗi tải danh sách đơn hàng: ${e.toString().replaceAll("Exception: ", "")}"),
+            content: Text(
+              "Lỗi tải danh sách đơn hàng: ${e.toString().replaceAll("Exception: ", "")}",
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -156,7 +181,9 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
     });
 
     try {
-      final shipments = await ApiService.fetchShipmentsList(status: _selectedShipmentStatus);
+      final shipments = await ApiService.fetchShipmentsList(
+        status: _selectedShipmentStatus,
+      );
       if (mounted) {
         setState(() {
           _shipments = shipments;
@@ -170,7 +197,9 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Lỗi tải danh sách chuyến xe: ${e.toString().replaceAll("Exception: ", "")}"),
+            content: Text(
+              "Lỗi tải danh sách chuyến xe: ${e.toString().replaceAll("Exception: ", "")}",
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -184,8 +213,14 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(status == 'APPROVED' ? "Đã duyệt đơn hàng thành công!" : "Đã từ chối đơn hàng thành công!"),
-            backgroundColor: status == 'APPROVED' ? Colors.green : Colors.redAccent,
+            content: Text(
+              status == 'APPROVED'
+                  ? "Đã duyệt đơn hàng thành công!"
+                  : "Đã từ chối đơn hàng thành công!",
+            ),
+            backgroundColor: status == 'APPROVED'
+                ? Colors.green
+                : Colors.redAccent,
             duration: const Duration(seconds: 1),
           ),
         );
@@ -197,7 +232,9 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Thao tác thất bại: ${e.toString().replaceAll("Exception: ", "")}"),
+            content: Text(
+              "Thao tác thất bại: ${e.toString().replaceAll("Exception: ", "")}",
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -222,7 +259,9 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Thao tác thất bại: ${e.toString().replaceAll("Exception: ", "")}"),
+            content: Text(
+              "Thao tác thất bại: ${e.toString().replaceAll("Exception: ", "")}",
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -304,28 +343,50 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                 const Divider(color: Colors.white12, height: 24),
                 const Text(
                   "CHI TIẾT MÓN ĂN:",
-                  style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                
+
                 // Items List
                 Flexible(
                   child: items.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.symmetric(vertical: 10),
-                          child: Text("Không có danh sách món ăn.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          child: Text(
+                            "Không có danh sách món ăn.",
+                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                          ),
                         )
                       : ListView.separated(
                           shrinkWrap: true,
                           itemCount: items.length,
-                          separatorBuilder: (context, index) => const Divider(color: Colors.white10, height: 12),
+                          separatorBuilder: (context, index) =>
+                              const Divider(color: Colors.white10, height: 12),
                           itemBuilder: (context, index) {
                             final item = items[index];
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(item['name'] ?? 'Món ăn', style: const TextStyle(color: Colors.white, fontSize: 13)),
-                                Text("x${item['quantity'] ?? 1}", style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.bold)),
+                                Text(
+                                  item['name'] ?? 'Món ăn',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  "x${item['quantity'] ?? 1}",
+                                  style: const TextStyle(
+                                    color: Colors.orange,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             );
                           },
@@ -335,8 +396,21 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Tổng cộng giá trị:", style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
-                    Text(_formatCurrency(totalAmount), style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                    Text(
+                      "Tổng cộng giá trị:",
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      _formatCurrency(totalAmount),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -347,19 +421,36 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.orange, width: 1.2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: () {
-                      final tracking = order['ahamoveOrderId'] ?? order['trackingUrl'] ?? order['shipmentId'] ?? 'AHA-ORDER-$id';
+                      final tracking =
+                          order['ahamoveOrderId'] ??
+                          order['trackingUrl'] ??
+                          order['shipmentId'] ??
+                          'AHA-ORDER-$id';
                       _launchAhamoveLink(tracking.toString());
                     },
-                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.orange, size: 16),
-                    label: const Text("Xem link AhaMove (Tracking)", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+                    icon: const Icon(
+                      Icons.open_in_new_rounded,
+                      color: Colors.orange,
+                      size: 16,
+                    ),
+                    label: const Text(
+                      "Xem link AhaMove (Tracking)",
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Quick approve directly inside details sheet
                 if (status == 'SUBMITTED') ...[
                   Row(
@@ -368,14 +459,22 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.redAccent),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           onPressed: () {
                             Navigator.pop(context);
                             _handleUpdateOrderStatus(id, 'REJECTED');
                           },
-                          child: const Text("TỪ CHỐI", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            "TỪ CHỐI",
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -383,14 +482,22 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           onPressed: () {
                             Navigator.pop(context);
                             _handleUpdateOrderStatus(id, 'APPROVED');
                           },
-                          child: const Text("DUYỆT ĐƠN", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            "DUYỆT ĐƠN",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -402,10 +509,18 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.white24),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text("ĐÓNG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        "ĐÓNG",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -439,7 +554,10 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
         return "${buffer.toString().split('').reversed.join('')} đ";
       } else {
         final int intPart = val.truncate();
-        final String decimalPart = (val - intPart).toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+        final String decimalPart = (val - intPart)
+            .toStringAsFixed(2)
+            .split('.')[1]
+            .replaceAll(RegExp(r'0+$'), '');
         final String str = intPart.toString();
         final buffer = StringBuffer();
         int count = 0;
@@ -525,7 +643,11 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
         backgroundColor: const Color(0xff1A1A1A),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.orange, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.orange,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -534,11 +656,20 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
           children: [
             const Text(
               "TRUNG TÂM ĐIỀU PHỐI",
-              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
             ),
             Text(
               "Xin chào, ${ApiService.currentUser?.name.isNotEmpty == true && ApiService.currentUser?.name != 'User' ? ApiService.currentUser!.name : 'Coordinator'}",
-              style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                color: Colors.orange,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -547,11 +678,23 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
           indicatorColor: Colors.orange,
           labelColor: Colors.orange,
           unselectedLabelColor: Colors.grey,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.1,
+          ),
           tabs: const [
-            Tab(text: "ĐƠN HÀNG", icon: Icon(Icons.assignment_rounded, size: 18)),
-            Tab(text: "VẬN CHUYỂN", icon: Icon(Icons.local_shipping_rounded, size: 18)),
-            Tab(text: "TIẾN ĐỘ BẾP", icon: Icon(Icons.soup_kitchen_rounded, size: 18)),
+            Tab(
+              text: "ĐƠN HÀNG",
+              icon: Icon(Icons.assignment_rounded, size: 18),
+            ),
+            Tab(
+              text: "VẬN CHUYỂN",
+              icon: Icon(Icons.local_shipping_rounded, size: 18),
+            ),
+            Tab(
+              text: "TIẾN ĐỘ BẾP",
+              icon: Icon(Icons.soup_kitchen_rounded, size: 18),
+            ),
           ],
         ),
       ),
@@ -601,19 +744,28 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                   },
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.orange : const Color(0xff1A1A1A),
+                      color: isSelected
+                          ? Colors.orange
+                          : const Color(0xff1A1A1A),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: isSelected ? Colors.orange : Colors.white.withOpacity(0.04),
+                        color: isSelected
+                            ? Colors.orange
+                            : Colors.white.withOpacity(0.04),
                       ),
                     ),
                     child: Center(
                       child: Text(
                         f['label']!,
                         style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.grey.shade400,
+                          color: isSelected
+                              ? Colors.black
+                              : Colors.grey.shade400,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -629,106 +781,154 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
           // Orders List
           Expanded(
             child: _isLoadingOrders
-                ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.orange),
+                  )
                 : _orders.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.assignment_outlined, color: Colors.grey.shade800, size: 60),
-                            const SizedBox(height: 12),
-                            Text("Không có đơn hàng nào", style: TextStyle(color: Colors.grey.shade500)),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.assignment_outlined,
+                          color: Colors.grey.shade800,
+                          size: 60,
                         ),
-                      )
-                    : ListView.separated(
-                        itemCount: _orders.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final order = _orders[index];
-                          final id = order['orderId'] ?? 0;
-                          final storeName = order['storeName'] ?? 'Cửa hàng';
-                          final totalAmount = order['totalAmount'] ?? 0;
-                          final status = order['status'] ?? 'SUBMITTED';
-                          final dateStr = (order['orderDate'] ?? '2026-07-14').split('T')[0];
+                        const SizedBox(height: 12),
+                        Text(
+                          "Không có đơn hàng nào",
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _orders.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final order = _orders[index];
+                      final id = order['orderId'] ?? 0;
+                      final storeName = order['storeName'] ?? 'Cửa hàng';
+                      final totalAmount = order['totalAmount'] ?? 0;
+                      final status = order['status'] ?? 'SUBMITTED';
+                      final dateStr = (order['orderDate'] ?? '2026-07-14')
+                          .split('T')[0];
 
-                          return InkWell(
-                            onTap: () => _showOrderDetailBottomSheet(order),
+                      return InkWell(
+                        onTap: () => _showOrderDetailBottomSheet(order),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff1A1A1A),
                             borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xff1A1A1A),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white.withOpacity(0.04)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.04),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          storeName,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                  Expanded(
+                                    child: Text(
+                                      storeName,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      _buildStatusBadge(status),
-                                    ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "Mã ĐH: #$id • $dateStr",
-                                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                                  _buildStatusBadge(status),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "Mã ĐH: #$id • $dateStr",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade500,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatCurrency(totalAmount),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              // Quick actions if pending coordinator approval
+                              if (status == 'SUBMITTED') ...[
+                                const Divider(
+                                  color: Colors.white10,
+                                  height: 20,
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => _handleUpdateOrderStatus(
+                                        id,
+                                        'REJECTED',
                                       ),
-                                      Text(
-                                        _formatCurrency(totalAmount),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
+                                      child: const Text(
+                                        "TỪ CHỐI",
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  
-                                  // Quick actions if pending coordinator approval
-                                  if (status == 'SUBMITTED') ...[
-                                    const Divider(color: Colors.white10, height: 20),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        TextButton(
-                                          onPressed: () => _handleUpdateOrderStatus(id, 'REJECTED'),
-                                          child: const Text("TỪ CHỐI", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                          onPressed: () => _handleUpdateOrderStatus(id, 'APPROVED'),
-                                          child: const Text("DUYỆT", style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
                                         ),
-                                      ],
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                      onPressed: () => _handleUpdateOrderStatus(
+                                        id,
+                                        'APPROVED',
+                                      ),
+                                      child: const Text(
+                                        "DUYỆT",
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ],
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -776,19 +976,28 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                     },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.orange : const Color(0xff1A1A1A),
+                        color: isSelected
+                            ? Colors.orange
+                            : const Color(0xff1A1A1A),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isSelected ? Colors.orange : Colors.white.withOpacity(0.04),
+                          color: isSelected
+                              ? Colors.orange
+                              : Colors.white.withOpacity(0.04),
                         ),
                       ),
                       child: Center(
                         child: Text(
                           f['label']!,
                           style: TextStyle(
-                            color: isSelected ? Colors.black : Colors.grey.shade400,
+                            color: isSelected
+                                ? Colors.black
+                                : Colors.grey.shade400,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -804,94 +1013,138 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
             // Shipments List
             Expanded(
               child: _isLoadingShipments
-                  ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.orange),
+                    )
                   : _shipments.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.local_shipping_outlined, color: Colors.grey.shade800, size: 60),
-                              const SizedBox(height: 12),
-                              Text("Không có chuyến xe nào", style: TextStyle(color: Colors.grey.shade500)),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.local_shipping_outlined,
+                            color: Colors.grey.shade800,
+                            size: 60,
                           ),
-                        )
-                      : ListView.separated(
-                          itemCount: _shipments.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final shipment = _shipments[index];
-                            final id = shipment['shipmentId'] ?? 0;
-                            final storeName = shipment['storeName'] ?? 'Cửa hàng';
-                            final status = shipment['status'] ?? 'PENDING';
-                            final driverName = shipment['driverName'] ?? 'Chưa gán';
-                            final vehicle = shipment['vehicleInfo'] ?? 'Chưa rõ';
-                            final dateStr = (shipment['createdAt'] ?? '2026-07-14').split('T')[0];
+                          const SizedBox(height: 12),
+                          Text(
+                            "Không có chuyến xe nào",
+                            style: TextStyle(color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _shipments.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final shipment = _shipments[index];
+                        final id = shipment['shipmentId'] ?? 0;
+                        final storeName = shipment['storeName'] ?? 'Cửa hàng';
+                        final status = shipment['status'] ?? 'PENDING';
+                        final driverName = shipment['driverName'] ?? 'Chưa gán';
+                        final vehicle = shipment['vehicleInfo'] ?? 'Chưa rõ';
+                        final dateStr = (shipment['createdAt'] ?? '2026-07-14')
+                            .split('T')[0];
 
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xff1A1A1A),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white.withOpacity(0.04)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff1A1A1A),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.04),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        "CHUYẾN XE: TRK-$id",
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      _buildStatusBadge(status),
-                                    ],
-                                  ),
-                                  const Divider(color: Colors.white10, height: 20),
-                                  _buildInfoLine(Icons.storefront_rounded, "Nơi nhận", storeName),
-                                  const SizedBox(height: 6),
-                                  _buildInfoLine(Icons.person_rounded, "Tài xế", driverName),
-                                  const SizedBox(height: 6),
-                                  _buildInfoLine(Icons.badge_rounded, "Phương tiện", vehicle),
-                                  const SizedBox(height: 6),
-                                  _buildInfoLine(Icons.calendar_month_rounded, "Ngày tạo", dateStr),
-                                  
-                                  // Quick transit action if Prepared (Kitchen has prepared it)
-                                  if (status == 'PREPARED') ...[
-                                    const Divider(color: Colors.white10, height: 20),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 38,
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        ),
-                                        onPressed: () => _handleStartTransit(id),
-                                        child: const Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.departure_board_rounded, color: Colors.black, size: 16),
-                                            SizedBox(width: 6),
-                                            Text(
-                                              "BẮT ĐẦU GIAO (START TRANSIT)",
-                                              style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                  Text(
+                                    "CHUYẾN XE: TRK-$id",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                  ],
+                                  ),
+                                  _buildStatusBadge(status),
                                 ],
                               ),
-                            );
-                          },
-                        ),
+                              const Divider(color: Colors.white10, height: 20),
+                              _buildInfoLine(
+                                Icons.storefront_rounded,
+                                "Nơi nhận",
+                                storeName,
+                              ),
+                              const SizedBox(height: 6),
+                              _buildInfoLine(
+                                Icons.person_rounded,
+                                "Tài xế",
+                                driverName,
+                              ),
+                              const SizedBox(height: 6),
+                              _buildInfoLine(
+                                Icons.badge_rounded,
+                                "Phương tiện",
+                                vehicle,
+                              ),
+                              const SizedBox(height: 6),
+                              _buildInfoLine(
+                                Icons.calendar_month_rounded,
+                                "Ngày tạo",
+                                dateStr,
+                              ),
+
+                              // Quick transit action if Prepared (Kitchen has prepared it)
+                              if (status == 'PREPARED') ...[
+                                const Divider(
+                                  color: Colors.white10,
+                                  height: 20,
+                                ),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 38,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.orange,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onPressed: () => _handleStartTransit(id),
+                                    child: const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.departure_board_rounded,
+                                          color: Colors.black,
+                                          size: 16,
+                                        ),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          "BẮT ĐẦU GIAO (START TRANSIT)",
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -904,11 +1157,18 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
       children: [
         Icon(icon, color: Colors.grey.shade600, size: 14),
         const SizedBox(width: 8),
-        Text("$label: ", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+        Text(
+          "$label: ",
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+        ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -936,13 +1196,28 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
             children: [
               const Row(
                 children: [
-                  Icon(Icons.soup_kitchen_rounded, color: Colors.orange, size: 20),
+                  Icon(
+                    Icons.soup_kitchen_rounded,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
                   SizedBox(width: 8),
-                  Text("TIẾN ĐỘ SẢN XUẤT BẾP TRUNG TÂM", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(
+                    "TIẾN ĐỘ SẢN XUẤT BẾP TRUNG TÂM",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: Colors.orange, size: 20),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: Colors.orange,
+                  size: 20,
+                ),
                 onPressed: _loadKitchenPlans,
               ),
             ],
@@ -966,17 +1241,28 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                   },
                   borderRadius: BorderRadius.circular(10),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.orange : const Color(0xff1A1A1A),
+                      color: isSelected
+                          ? Colors.orange
+                          : const Color(0xff1A1A1A),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: isSelected ? Colors.orange : Colors.white.withOpacity(0.04)),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.orange
+                            : Colors.white.withOpacity(0.04),
+                      ),
                     ),
                     child: Center(
                       child: Text(
                         filter['label']!,
                         style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.grey.shade400,
+                          color: isSelected
+                              ? Colors.black
+                              : Colors.grey.shade400,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -991,198 +1277,336 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
 
           Expanded(
             child: _isLoadingKitchenPlans
-                ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.orange),
+                  )
                 : _kitchenPlans.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.restaurant_menu_rounded, color: Colors.grey.shade800, size: 60),
-                            const SizedBox(height: 12),
-                            Text("Bếp chưa có kế hoạch sản xuất nào", style: TextStyle(color: Colors.grey.shade500)),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.restaurant_menu_rounded,
+                          color: Colors.grey.shade800,
+                          size: 60,
                         ),
-                      )
-                    : ListView.separated(
-                        itemCount: _kitchenPlans.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final plan = _kitchenPlans[index];
-                          final id = plan['planId'] ?? plan['id'] ?? 0;
-                          final planName = plan['planName'] ?? 'Lệnh sản xuất #$id';
-                          final status = plan['status'] ?? 'PLANNED';
-                          final kitchenName = plan['kitchenName'] ?? 'Bếp trung tâm';
-                          final code = plan['batchCode'] ?? '';
-                          final date = plan['createdAt'] ?? '';
-                          final List items = plan['items'] ?? [];
+                        const SizedBox(height: 12),
+                        Text(
+                          "Bếp chưa có kế hoạch sản xuất nào",
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _kitchenPlans.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final plan = _kitchenPlans[index];
+                      final id = plan['planId'] ?? plan['id'] ?? 0;
+                      final planName = plan['planName'] ?? 'Lệnh sản xuất #$id';
+                      final status = plan['status'] ?? 'PLANNED';
+                      final kitchenName =
+                          plan['kitchenName'] ?? 'Bếp trung tâm';
+                      final code = plan['batchCode'] ?? '';
+                      final date = plan['createdAt'] ?? '';
+                      final List items = plan['items'] ?? [];
 
-                          Color statusColor = Colors.grey;
-                          String statusText = status.toString();
-                          switch (status.toString().toUpperCase()) {
-                            case 'FINISHED':
-                            case 'PRODUCED':
-                            case 'COMPLETED':
-                              statusColor = Colors.greenAccent;
-                              statusText = "Đã nấu xong";
-                              break;
-                            case 'IN_PRODUCTION':
-                            case 'PRODUCING':
-                              statusColor = Colors.blueAccent;
-                              statusText = "Đang nấu";
-                              break;
-                            case 'READY_TO_PRODUCE':
-                              statusColor = Colors.amberAccent;
-                              statusText = "Chờ nấu";
-                              break;
-                            case 'PLANNED':
-                            case 'CREATED':
-                            case 'PENDING':
-                            case 'DRAFT':
-                              statusColor = Colors.orangeAccent;
-                              statusText = "Chờ đánh dấu";
-                              break;
-                          }
+                      Color statusColor = Colors.grey;
+                      String statusText = status.toString();
+                      switch (status.toString().toUpperCase()) {
+                        case 'FINISHED':
+                        case 'PRODUCED':
+                        case 'COMPLETED':
+                          statusColor = Colors.greenAccent;
+                          statusText = "Đã nấu xong";
+                          break;
+                        case 'IN_PRODUCTION':
+                        case 'PRODUCING':
+                          statusColor = Colors.blueAccent;
+                          statusText = "Đang nấu";
+                          break;
+                        case 'READY_TO_PRODUCE':
+                          statusColor = Colors.amberAccent;
+                          statusText = "Chờ nấu";
+                          break;
+                        case 'PLANNED':
+                        case 'CREATED':
+                        case 'PENDING':
+                        case 'DRAFT':
+                          statusColor = Colors.orangeAccent;
+                          statusText = "Chờ đánh dấu";
+                          break;
+                      }
 
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xff1A1A1A),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withOpacity(0.04)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff1A1A1A),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.04),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(planName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-                                          if (code.toString().isNotEmpty || date.toString().isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                        Text(
-                                              "${code.toString().isNotEmpty ? 'Mã lô: $code • ' : ''}${date.toString().contains('T') ? 'Ngày: ${date.toString().split('T')[0]}' : ''}",
-                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-                                            ),
-                                          ],
-                                          const SizedBox(height: 2),
-                                          Text("Phụ trách: $kitchenName", style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: statusColor.withOpacity(0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: statusColor.withOpacity(0.2)),
-                                      ),
-                                      child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ],
-                                ),
-                                const Divider(color: Colors.white10, height: 20),
-                                const Text("MÓN ĂN CẦN SẢN XUẤT:", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                                const SizedBox(height: 6),
-                                ...items.map((it) {
-                                  final name = it['productName'] ?? it['name'] ?? 'Sản phẩm';
-                                  final qty = it['plannedQuantity'] ?? it['quantity'] ?? 0;
-                                  final actual = it['actualQuantity'] ?? it['actualQty'];
-                                  final unit = it['unit'] ?? 'PIECE';
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 3),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                                        Text(
-                                          actual != null ? "Kế hoạch: $qty $unit (Thực tế: $actual)" : "$qty $unit",
-                                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-
-                                // Materials Dropdown
-                                Theme(
-                                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                                  child: ExpansionTile(
-                                    tilePadding: EdgeInsets.zero,
-                                    childrenPadding: const EdgeInsets.only(top: 4, bottom: 4),
-                                    iconColor: Colors.orange,
-                                    collapsedIconColor: Colors.grey.shade400,
-                                    title: Row(
-                                      children: [
-                                        const Icon(Icons.inventory_2_outlined, color: Colors.orange, size: 16),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          "NGUYÊN LIỆU CẦN THIẾT (${(plan['materials'] as List?)?.length ?? 0})",
-                                          style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1),
-                                        ),
-                                      ],
-                                    ),
-                                    onExpansionChanged: (expanded) async {
-                                      if (expanded && ((plan['materials'] as List?) == null || (plan['materials'] as List).isEmpty)) {
-                                        final int planId = plan['planId'] ?? plan['id'] ?? 0;
-                                        try {
-                                          final detail = await ApiService.getProductionPlanDetails(planId);
-                                          if (detail.isNotEmpty && mounted) {
-                                            setState(() {
-                                              plan['materials'] = detail['materials'] ?? [];
-                                              if (detail['items'] != null && (detail['items'] as List).isNotEmpty) {
-                                                plan['items'] = detail['items'];
-                                              }
-                                            });
-                                          }
-                                        } catch (_) {}
-                                      }
-                                    },
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      if ((plan['materials'] as List?) == null || (plan['materials'] as List).isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(vertical: 6),
-                                          child: Text("Đang tải hoặc không có thông tin nguyên liệu", style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic)),
-                                        )
-                                      else
-                                        ...((plan['materials'] as List).map((mat) {
-                                          final mName = mat['materialName'] ?? mat['name'] ?? 'Nguyên liệu';
-                                          final reqQty = mat['requiredQuantity'] ?? mat['quantity'] ?? 0;
-                                          final mUnit = mat['unit'] ?? 'KG';
-                                          return Container(
-                                            margin: const EdgeInsets.only(bottom: 6),
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.black.withOpacity(0.3),
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: Colors.white.withOpacity(0.05)),
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    const Icon(Icons.grain_rounded, color: Colors.orangeAccent, size: 14),
-                                                    const SizedBox(width: 6),
-                                                    Text(mName, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                                                  ],
-                                                ),
-                                                Text("Cần: $reqQty $mUnit", style: const TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList()),
+                                      Text(
+                                        planName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (code.toString().isNotEmpty ||
+                                          date.toString().isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "${code.toString().isNotEmpty ? 'Mã lô: $code • ' : ''}${date.toString().contains('T') ? 'Ngày: ${date.toString().split('T')[0]}' : ''}",
+                                          style: TextStyle(
+                                            color: Colors.grey.shade500,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "Phụ trách: $kitchenName",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade400,
+                                          fontSize: 11,
+                                        ),
+                                      ),
                                     ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: statusColor.withOpacity(0.2),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          );
-                        },
-                      ),
+                            const Divider(color: Colors.white10, height: 20),
+                            const Text(
+                              "MÓN ĂN CẦN SẢN XUẤT:",
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            ...items.map((it) {
+                              final name =
+                                  it['productName'] ?? it['name'] ?? 'Sản phẩm';
+                              final qty =
+                                  it['plannedQuantity'] ?? it['quantity'] ?? 0;
+                              final actual =
+                                  it['actualQuantity'] ?? it['actualQty'];
+                              final unit = it['unit'] ?? 'PIECE';
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 3,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      actual != null
+                                          ? "Kế hoạch: $qty $unit (Thực tế: $actual)"
+                                          : "$qty $unit",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+
+                            // Materials Dropdown
+                            Theme(
+                              data: Theme.of(
+                                context,
+                              ).copyWith(dividerColor: Colors.transparent),
+                              child: ExpansionTile(
+                                tilePadding: EdgeInsets.zero,
+                                childrenPadding: const EdgeInsets.only(
+                                  top: 4,
+                                  bottom: 4,
+                                ),
+                                iconColor: Colors.orange,
+                                collapsedIconColor: Colors.grey.shade400,
+                                title: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.inventory_2_outlined,
+                                      color: Colors.orange,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      "NGUYÊN LIỆU CẦN THIẾT (${(plan['materials'] as List?)?.length ?? 0})",
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                onExpansionChanged: (expanded) async {
+                                  if (expanded &&
+                                      ((plan['materials'] as List?) == null ||
+                                          (plan['materials'] as List)
+                                              .isEmpty)) {
+                                    final int planId =
+                                        plan['planId'] ?? plan['id'] ?? 0;
+                                    try {
+                                      final detail =
+                                          await ApiService.getProductionPlanDetails(
+                                            planId,
+                                          );
+                                      if (detail.isNotEmpty && mounted) {
+                                        setState(() {
+                                          plan['materials'] =
+                                              detail['materials'] ?? [];
+                                          if (detail['items'] != null &&
+                                              (detail['items'] as List)
+                                                  .isNotEmpty) {
+                                            plan['items'] = detail['items'];
+                                          }
+                                        });
+                                      }
+                                    } catch (_) {}
+                                  }
+                                },
+                                children: [
+                                  if ((plan['materials'] as List?) == null ||
+                                      (plan['materials'] as List).isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 6,
+                                      ),
+                                      child: Text(
+                                        "Đang tải hoặc không có thông tin nguyên liệu",
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 11,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    ...((plan['materials'] as List).map((mat) {
+                                      final mName =
+                                          mat['materialName'] ??
+                                          mat['name'] ??
+                                          'Nguyên liệu';
+                                      final reqQty =
+                                          mat['requiredQuantity'] ??
+                                          mat['quantity'] ??
+                                          0;
+                                      final mUnit = mat['unit'] ?? 'KG';
+                                      return Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.3),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(
+                                              0.05,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.grain_rounded,
+                                                  color: Colors.orangeAccent,
+                                                  size: 14,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  mName,
+                                                  style: const TextStyle(
+                                                    color: Colors.white70,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Text(
+                                              "Cần: $reqQty $mUnit",
+                                              style: const TextStyle(
+                                                color: Colors.amberAccent,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList()),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -1271,7 +1695,10 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
       _isSubmitting = true;
     });
 
-    final store = _stores.firstWhere((s) => s['id'] == _selectedStoreId, orElse: () => {});
+    final store = _stores.firstWhere(
+      (s) => s['id'] == _selectedStoreId,
+      orElse: () => {},
+    );
     final storeName = store['name'] ?? 'Cửa hàng';
 
     final payload = {
@@ -1282,7 +1709,7 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
           'storeId': _selectedStoreId,
           'storeOrderIds': [_selectedOrderId],
           'remarks': 'Giao đơn #${_selectedOrderId}',
-        }
+        },
       ],
       'remarks': 'Giao hàng theo chuyến điều phối',
     };
@@ -1324,7 +1751,9 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
     // Filter orders mapped to the selected store
     final filteredOrders = _selectedStoreId == null
         ? <Map<String, dynamic>>[]
-        : _approvedOrders.where((o) => o['storeId'] == _selectedStoreId).toList();
+        : _approvedOrders
+              .where((o) => o['storeId'] == _selectedStoreId)
+              .toList();
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1336,7 +1765,9 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
       child: _isLoadingDropdowns
           ? const SizedBox(
               height: 200,
-              child: Center(child: CircularProgressIndicator(color: Colors.orange)),
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.orange),
+              ),
             )
           : SingleChildScrollView(
               child: Form(
@@ -1358,7 +1789,11 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                     const SizedBox(height: 20),
                     const Row(
                       children: [
-                        Icon(Icons.local_shipping_rounded, color: Colors.orange, size: 22),
+                        Icon(
+                          Icons.local_shipping_rounded,
+                          color: Colors.orange,
+                          size: 22,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           "ĐIỀU PHỐI CHUYẾN XE MỚI",
@@ -1376,7 +1811,11 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                     // Store Selector
                     Text(
                       "CỬA HÀNG NHẬN",
-                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
@@ -1389,7 +1828,8 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                           _selectedOrderId = null; // reset order
                         });
                       },
-                      validator: (val) => val == null ? "Vui lòng chọn cửa hàng" : null,
+                      validator: (val) =>
+                          val == null ? "Vui lòng chọn cửa hàng" : null,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xff0F0F0F),
@@ -1412,7 +1852,11 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                     // Order Selector
                     Text(
                       "ĐƠN HÀNG ĐÃ DUYỆT (APPROVED)",
-                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<int>(
@@ -1424,9 +1868,13 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                           _selectedOrderId = val;
                         });
                       },
-                      validator: (val) => val == null ? "Vui lòng chọn đơn hàng liên kết" : null,
+                      validator: (val) => val == null
+                          ? "Vui lòng chọn đơn hàng liên kết"
+                          : null,
                       disabledHint: Text(
-                        _selectedStoreId == null ? "Chọn cửa hàng trước" : "Không có đơn hàng đã duyệt",
+                        _selectedStoreId == null
+                            ? "Chọn cửa hàng trước"
+                            : "Không có đơn hàng đã duyệt",
                         style: const TextStyle(color: Colors.grey),
                       ),
                       decoration: InputDecoration(
@@ -1441,31 +1889,42 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                       items: _selectedStoreId == null
                           ? null
                           : filteredOrders.isEmpty
-                              ? null
-                              : filteredOrders.map((o) {
-                                  final id = o['orderId'] as int;
-                                  final total = o['totalAmount'] ?? 0;
-                                  return DropdownMenuItem<int>(
-                                    value: id,
-                                    child: Text("Đơn Hàng #$id - ${total ~/ 1000}k đ"),
-                                  );
-                                }).toList(),
+                          ? null
+                          : filteredOrders.map((o) {
+                              final id = o['orderId'] as int;
+                              final total = o['totalAmount'] ?? 0;
+                              return DropdownMenuItem<int>(
+                                value: id,
+                                child: Text(
+                                  "Đơn Hàng #$id - ${total ~/ 1000}k đ",
+                                ),
+                              );
+                            }).toList(),
                     ),
                     const SizedBox(height: 16),
 
                     // Driver Name
                     Text(
                       "TÊN TÀI XẾ",
-                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _driverNameController,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      validator: (val) => val == null || val.trim().isEmpty ? "Vui lòng nhập tên tài xế" : null,
+                      validator: (val) => val == null || val.trim().isEmpty
+                          ? "Vui lòng nhập tên tài xế"
+                          : null,
                       decoration: InputDecoration(
                         hintText: "VD: Nguyễn Văn Tài",
-                        hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
                         filled: true,
                         fillColor: const Color(0xff0F0F0F),
                         border: OutlineInputBorder(
@@ -1479,17 +1938,26 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                     // Driver Phone
                     Text(
                       "SỐ ĐIỆN THOẠI TÀI XẾ",
-                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _driverPhoneController,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       keyboardType: TextInputType.phone,
-                      validator: (val) => val == null || val.trim().length < 9 ? "Số điện thoại không hợp lệ" : null,
+                      validator: (val) => val == null || val.trim().length < 9
+                          ? "Số điện thoại không hợp lệ"
+                          : null,
                       decoration: InputDecoration(
                         hintText: "VD: 0901234567",
-                        hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
                         filled: true,
                         fillColor: const Color(0xff0F0F0F),
                         border: OutlineInputBorder(
@@ -1503,16 +1971,25 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                     // Vehicle plate
                     Text(
                       "THÔNG TIN XE / BIỂN SỐ XE",
-                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _vehicleController,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
-                      validator: (val) => val == null || val.trim().isEmpty ? "Vui lòng nhập thông tin xe" : null,
+                      validator: (val) => val == null || val.trim().isEmpty
+                          ? "Vui lòng nhập thông tin xe"
+                          : null,
                       decoration: InputDecoration(
                         hintText: "VD: Xe Tải - 29C-12345",
-                        hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
                         filled: true,
                         fillColor: const Color(0xff0F0F0F),
                         border: OutlineInputBorder(
@@ -1526,7 +2003,11 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                     // Service Dropdown
                     Text(
                       "DỊCH VỤ VẬN CHUYỂN",
-                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
@@ -1572,7 +2053,10 @@ class _AddShipmentFormState extends State<AddShipmentForm> {
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
-                                child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
+                                child: CircularProgressIndicator(
+                                  color: Colors.black,
+                                  strokeWidth: 2.5,
+                                ),
                               )
                             : const Text(
                                 "TẠO CHUYẾN XE",
