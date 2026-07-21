@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../services/api_service.dart';
+import '../../../core/widgets/goong_map_view_widget.dart';
 import 'user_management_screen.dart';
+import 'admin_report_screen.dart';
 
 class AdminHubScreen extends StatefulWidget {
   final int initialTab;
@@ -19,9 +21,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
   // --- Common States ---
   bool _isLoading = false;
 
-  // --- Tab 1: Users & Roles States ---
-  String _userSubTab = "USERS"; // "USERS" or "ROLES"
+  // --- Tab 1: Users, Roles & Privileges States ---
+  String _userSubTab = "USERS"; // "USERS", "ROLES", or "PRIVILEGES"
   List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _privileges = [];
+  List<Map<String, dynamic>> _roles = [];
   String _userSearchQuery = "";
   final TextEditingController _userSearchController = TextEditingController();
 
@@ -37,50 +41,30 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
   DateTime _periodEnd = DateTime.now();
   final TextEditingController _cycleNameController = TextEditingController(text: "Chu kỳ T7/2026");
 
-  // Role permissions definitions (matching React permissions.ts exactly)
-  final Map<String, List<String>> _rolePermissions = {
-    'ADMIN': [
-      'FULL_ACCESS',
-      'USER_MANAGEMENT',
-      'STORE_MANAGEMENT',
-      'KITCHEN_MANAGEMENT',
-      'BILLING_EDIT',
-      'BATCH_BILLING_GENERATE'
-    ],
-    'MANAGER': [
-      'PRODUCT_MANAGEMENT',
-      'VIEW_BILLING',
-      'CONFIRM_BILLING',
-      'VIEW_REPORTS',
-      'ORDER_ALLOCATION'
-    ],
-    'COORDINATOR': [
-      'APPROVE_ORDERS',
-      'PRODUCTION_PLANNING',
-      'ALLOCATION_MANAGEMENT',
-      'CREATE_SHIPMENT',
-      'VIEW_SHIPMENT',
-      'START_TRANSIT'
-    ],
-    'KITCHEN_STAFF': [
-      'VIEW_PRODUCTION_PLAN',
-      'UPDATE_PRODUCTION_STATUS',
-      'PREPARE_SHIPMENT',
-      'INVENTORY_CHECK'
-    ],
-    'STORE_STAFF': [
-      'CREATE_ORDER',
-      'VIEW_STORE_ORDERS',
-      'RECEIVE_SHIPMENT',
-      'CONFIRM_DELIVERY'
-    ]
-  };
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTab);
+    _ensureUserFullName();
     _loadAllData();
+  }
+
+  Future<void> _ensureUserFullName() async {
+    final user = ApiService.currentUser;
+    if (user != null && (user.name.isEmpty || user.name == 'User')) {
+      final uId = int.tryParse(user.id);
+      if (uId != null && uId > 0) {
+        final profile = await ApiService.fetchUserById(uId);
+        if (profile != null) {
+          final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+          if (fn != null && fn.toString().isNotEmpty && mounted) {
+            setState(() {
+              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+            });
+          }
+        }
+      }
+    }
   }
 
   @override
@@ -98,8 +82,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
       final kitchensFuture = ApiService.fetchKitchens();
       final storesFuture = ApiService.fetchStores();
       final billingFuture = ApiService.fetchBillingStatements();
+      final privilegesFuture = ApiService.fetchPrivileges();
+      final rolesFuture = ApiService.fetchRoles();
 
-      final results = await Future.wait([usersFuture, kitchensFuture, storesFuture, billingFuture]);
+      final results = await Future.wait([usersFuture, kitchensFuture, storesFuture, billingFuture, privilegesFuture, rolesFuture]);
 
       if (mounted) {
         setState(() {
@@ -112,15 +98,218 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
           
           _stores = results[2];
           _billingStatements = results[3];
+          _privileges = results[4];
+          _roles = results[5];
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        _showErrorSnackBar("Không thể tải dữ liệu: ${e.toString()}");
       }
     }
+  }
+
+  Future<void> _loadPrivileges() async {
+    try {
+      final list = await ApiService.fetchPrivileges();
+      if (mounted) {
+        setState(() => _privileges = list);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadRoles() async {
+    try {
+      final list = await ApiService.fetchRoles();
+      if (mounted) {
+        setState(() => _roles = list);
+      }
+    } catch (_) {}
+  }
+
+  void _showRoleForm({Map<String, dynamic>? role}) {
+    final nameCtrl = TextEditingController(text: role?['roleName'] ?? role?['name'] ?? '');
+    final isEdit = role != null;
+    final int? roleId = role?['roleId'] ?? role?['id'];
+
+    final List<dynamic> currentPrivs = role?['privileges'] ?? [];
+    final Set<int> selectedPrivilegeIds = currentPrivs
+        .map<int>((p) => (p['privilegeId'] ?? p['id'] ?? 0) as int)
+        .where((id) => id > 0)
+        .toSet();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xff1A1A1A),
+              title: Text(
+                isEdit ? "CHỈNH SỬA VAI TRÒ (ROLE)" : "TẠO VAI TRÒ MỚI",
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("TÊN VAI TRÒ (ROLE NAME)", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameCtrl,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: "VD: STORE_MANAGER",
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        filled: true,
+                        fillColor: const Color(0xff0F0F0F),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("DANH SÁCH QUYỀN HẠN (PRIVILEGES)", style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold)),
+                        Text("${selectedPrivilegeIds.length} đã chọn", style: TextStyle(color: Colors.grey.shade400, fontSize: 10)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 260),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff0F0F0F),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: _privileges.isEmpty
+                            ? const Center(child: Text("Không có quyền hạn hệ thống", style: TextStyle(color: Colors.grey)))
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: _privileges.length,
+                                separatorBuilder: (ctx, i) => const Divider(color: Colors.white10, height: 1),
+                                itemBuilder: (ctx, i) {
+                                  final p = _privileges[i];
+                                  final pId = (p['privilegeId'] ?? p['id'] ?? 0) as int;
+                                  final pCode = (p['code'] ?? '').toString();
+                                  final pDesc = (p['description'] ?? '').toString();
+                                  final isChecked = selectedPrivilegeIds.contains(pId);
+
+                                  return CheckboxListTile(
+                                    dense: true,
+                                    activeColor: Colors.orange,
+                                    checkColor: Colors.black,
+                                    title: Text(pCode, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    subtitle: pDesc.isNotEmpty ? Text(pDesc, style: TextStyle(color: Colors.grey.shade400, fontSize: 10)) : null,
+                                    value: isChecked,
+                                    onChanged: (val) {
+                                      setDialogState(() {
+                                        if (val == true) {
+                                          selectedPrivilegeIds.add(pId);
+                                        } else {
+                                          selectedPrivilegeIds.remove(pId);
+                                        }
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  onPressed: () async {
+                    final roleName = nameCtrl.text.trim();
+                    if (roleName.isEmpty) return;
+
+                    Navigator.pop(ctx);
+                    try {
+                      if (isEdit && roleId != null) {
+                        await ApiService.updateRole(roleId, roleName, selectedPrivilegeIds.toList());
+                      } else {
+                        await ApiService.createRole(roleName, selectedPrivilegeIds.toList());
+                      }
+                      _loadRoles();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isEdit ? "Cập nhật vai trò thành công!" : "Tạo vai trò mới thành công!"),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Lỗi: $e"), backgroundColor: Colors.redAccent),
+                        );
+                      }
+                    }
+                  },
+                  child: Text(isEdit ? "CẬP NHẬT" : "TẠO VAI TRÒ", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteRole(Map<String, dynamic> role) {
+    final int roleId = role['roleId'] ?? role['id'];
+    final name = role['roleName'] ?? role['name'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xff1A1A1A),
+          title: const Text("Xác nhận xóa vai trò", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: Text("Bạn có chắc chắn muốn xóa vai trò \"$name\"?", style: const TextStyle(color: Colors.grey)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await ApiService.deleteRole(roleId);
+                  _loadRoles();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Đã xóa vai trò thành công!"), backgroundColor: Colors.green),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Lỗi xóa vai trò: $e"), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              },
+              child: const Text("XÓA VAI TRÒ", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showErrorSnackBar(String msg) {
@@ -376,21 +565,39 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
   String _formatCurrency(dynamic amount) {
     if (amount == null) return "0 đ";
     try {
-      final int parsed = int.parse(amount.toString());
-      final String str = parsed.toString();
-      if (str.length <= 3) return "$str đ";
-      
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = str.length - 1; i >= 0; i--) {
-        buffer.write(str[i]);
-        count++;
-        if (count == 3 && i != 0) {
-          buffer.write('.');
-          count = 0;
+      final double val = double.parse(amount.toString());
+      if (val % 1 == 0) {
+        final int intVal = val.toInt();
+        final String str = intVal.toString();
+        if (str.length <= 3) return "$str đ";
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
         }
+        return "${buffer.toString().split('').reversed.join('')} đ";
+      } else {
+        final int intPart = val.truncate();
+        final String decimalPart = (val - intPart).toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+        final String str = intPart.toString();
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
+        }
+        final formattedInt = buffer.toString().split('').reversed.join('');
+        return "$formattedInt,$decimalPart đ";
       }
-      return "${buffer.toString().split('').reversed.join('')} đ";
     } catch (_) {
       return "$amount đ";
     }
@@ -450,9 +657,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.orange, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "HỆ THỐNG QUẢN TRỊ",
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "HỆ THỐNG QUẢN TRỊ",
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            Text(
+              "Xin chào, ${ApiService.currentUser?.name.isNotEmpty == true && ApiService.currentUser?.name != 'User' ? ApiService.currentUser!.name : 'Admin'}",
+              style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -464,6 +681,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
             Tab(text: "NHÂN SỰ & VAI TRÒ", icon: Icon(Icons.people_alt_rounded, size: 18)),
             Tab(text: "BẾP & CỬA HÀNG", icon: Icon(Icons.storefront_rounded, size: 18)),
             Tab(text: "HÓA ĐƠN & BILLING", icon: Icon(Icons.payments_rounded, size: 18)),
+            Tab(text: "BÁO CÁO", icon: Icon(Icons.bar_chart_rounded, size: 18)),
           ],
         ),
       ),
@@ -475,6 +693,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 _buildUsersTab(),
                 _buildFacilitiesTab(),
                 _buildBillingTab(),
+                const AdminReportScreen(),
               ],
             ),
     );
@@ -491,34 +710,51 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
             children: [
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text("DANH SÁCH NHÂN VIÊN")),
+                  label: const Center(child: Text("NHÂN VIÊN")),
                   selected: _userSubTab == "USERS",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _userSubTab == "USERS" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
-                    fontSize: 11,
+                    fontSize: 10,
                   ),
                   onSelected: (sel) {
                     if (sel) setState(() => _userSubTab = "USERS");
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               Expanded(
                 child: ChoiceChip(
-                  label: const Center(child: Text("VAI TRÒ & PHÂN QUYỀN")),
+                  label: const Center(child: Text("VAI TRÒ")),
                   selected: _userSubTab == "ROLES",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _userSubTab == "ROLES" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
-                    fontSize: 11,
+                    fontSize: 10,
                   ),
                   onSelected: (sel) {
                     if (sel) setState(() => _userSubTab = "ROLES");
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text("QUYỀN HẠN")),
+                  selected: _userSubTab == "PRIVILEGES",
+                  selectedColor: Colors.orange,
+                  backgroundColor: Colors.white10,
+                  labelStyle: TextStyle(
+                    color: _userSubTab == "PRIVILEGES" ? Colors.black : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                  onSelected: (sel) {
+                    if (sel) setState(() => _userSubTab = "PRIVILEGES");
                   },
                 ),
               ),
@@ -529,10 +765,263 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
           Expanded(
             child: _userSubTab == "USERS"
                 ? _buildUsersSubSection()
-                : _buildRolesSubSection(),
+                : (_userSubTab == "ROLES" ? _buildRolesSubSection() : _buildPrivilegesSubSection()),
           ),
         ],
       ),
+    );
+  }
+
+  // --- PRIVILEGES SUB-SECTION (CRUD API) ---
+  Widget _buildPrivilegesSubSection() {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.orange,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        onPressed: () => _showPrivilegeForm(),
+        child: const Icon(Icons.add_rounded, color: Colors.black),
+      ),
+      body: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "TỔNG SỐ QUYỀN HẠN: ${_privileges.length}",
+                style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: Colors.orange, size: 20),
+                onPressed: _loadPrivileges,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _privileges.isEmpty
+                ? const Center(child: Text("Chưa có quyền hạn nào trong hệ thống", style: TextStyle(color: Colors.grey)))
+                : ListView.separated(
+                    itemCount: _privileges.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final priv = _privileges[index];
+                      final id = priv['privilegeId'] ?? priv['id'] ?? 0;
+                      final code = priv['code'] ?? 'MÃ_QUYỀN';
+                      final desc = priv['description'] ?? 'Chưa cập nhật mô tả';
+
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff1A1A1A),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withOpacity(0.04)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.security_rounded, color: Colors.orange, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          code,
+                                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.06),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text("ID: $id", style: TextStyle(color: Colors.grey.shade400, fontSize: 9, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(desc, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                  icon: const Icon(Icons.edit_note_rounded, color: Colors.orangeAccent, size: 20),
+                                  onPressed: () => _showPrivilegeForm(privilege: priv),
+                                ),
+                                IconButton(
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                  onPressed: () => _confirmDeletePrivilege(priv),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivilegeForm({Map<String, dynamic>? privilege}) {
+    final codeCtrl = TextEditingController(text: privilege?['code'] ?? '');
+    final descCtrl = TextEditingController(text: privilege?['description'] ?? '');
+    final isEdit = privilege != null;
+    final int? privId = privilege?['privilegeId'] ?? privilege?['id'];
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xff1A1A1A),
+          title: Text(
+            isEdit ? "CHỈNH SỬA QUYỀN HẠN" : "TẠO QUYỀN HẠN MỚI",
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("MÃ QUYỀN (CODE)", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: codeCtrl,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: "VD: MANAGE_CATALOG",
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xff0F0F0F),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text("MÔ TẢ QUYỀN HẠN", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: descCtrl,
+                maxLines: 2,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: "Nhập chi tiết mô tả quyền...",
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: const Color(0xff0F0F0F),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () async {
+                final code = codeCtrl.text.trim();
+                final desc = descCtrl.text.trim();
+                if (code.isEmpty) return;
+
+                Navigator.pop(ctx);
+                try {
+                  if (isEdit && privId != null) {
+                    await ApiService.updatePrivilege(privId, code, desc);
+                  } else {
+                    await ApiService.createPrivilege(code, desc);
+                  }
+                  _loadPrivileges();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isEdit ? "Cập nhật quyền hạn thành công!" : "Tạo quyền hạn thành công!"),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Lỗi: $e"), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              },
+              child: Text(isEdit ? "CẬP NHẬT" : "TẠO QUYỀN", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmDeletePrivilege(Map<String, dynamic> privilege) {
+    final int privId = privilege['privilegeId'] ?? privilege['id'];
+    final code = privilege['code'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xff1A1A1A),
+          title: const Text("Xác nhận xóa quyền hạn", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: Text("Bạn có chắc chắn muốn xóa quyền \"$code\"?", style: const TextStyle(color: Colors.grey)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await ApiService.deletePrivilege(privId);
+                  _loadPrivileges();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Đã xóa quyền hạn thành công!"), backgroundColor: Colors.green),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Lỗi xóa: $e"), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              },
+              child: const Text("XÓA QUYỀN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -676,67 +1165,139 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
   }
 
   Widget _buildRolesSubSection() {
-    return ListView.separated(
-      itemCount: _rolePermissions.keys.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final roleKey = _rolePermissions.keys.elementAt(index);
-        final perms = _rolePermissions[roleKey]!;
-        final dispRole = _cleanRoleName(roleKey);
-        final color = _getRoleColor(roleKey);
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xff1A1A1A),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.04)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.orange,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        onPressed: () => _showRoleForm(),
+        child: const Icon(Icons.add_moderator_rounded, color: Colors.black),
+      ),
+      body: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    dispRole,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 6),
-                  Text("($roleKey)", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                ],
+              Text(
+                "TỔNG SỐ VAI TRÒ (ROLES): ${_roles.length}",
+                style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
               ),
-              const Divider(color: Colors.white12, height: 20),
-              const Text("QUYỀN HẠN ĐƯỢC PHÂN PHỐI:", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-              const SizedBox(height: 8),
-              
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: perms.map((p) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.orange.withOpacity(0.15)),
-                    ),
-                    child: Text(
-                      p,
-                      style: const TextStyle(color: Colors.orange, fontSize: 10, fontFamily: 'monospace'),
-                    ),
-                  );
-                }).toList(),
-              )
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: Colors.orange, size: 20),
+                onPressed: _loadRoles,
+              ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 8),
+          Expanded(
+            child: _roles.isEmpty
+                ? const Center(child: Text("Chưa có vai trò nào trong hệ thống", style: TextStyle(color: Colors.grey)))
+                : ListView.separated(
+                    itemCount: _roles.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final r = _roles[index];
+                      final id = r['roleId'] ?? r['id'] ?? 0;
+                      final roleName = r['roleName'] ?? r['name'] ?? 'ROLE';
+                      final List<dynamic> privs = r['privileges'] ?? [];
+
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff1A1A1A),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white.withOpacity(0.04)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.orange, size: 20),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              roleName,
+                                              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                            ),
+                                            Text(
+                                              "Role ID: $id • ${privs.length} quyền được gán",
+                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_note_rounded, color: Colors.orangeAccent, size: 22),
+                                      onPressed: () => _showRoleForm(role: r),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                      onPressed: () => _confirmDeleteRole(r),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const Divider(color: Colors.white12, height: 20),
+                            const Text(
+                              "QUYỀN HẠN ĐƯỢC GÁN (PRIVILEGES):",
+                              style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                            ),
+                            const SizedBox(height: 8),
+                            privs.isEmpty
+                                ? const Text("Chưa gán quyền hạn nào", style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic))
+                                : Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: privs.map((p) {
+                                      final code = (p['code'] ?? '').toString();
+                                      final desc = (p['description'] ?? '').toString();
+                                      return Tooltip(
+                                        message: desc,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                                          ),
+                                          child: Text(
+                                            code,
+                                            style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -752,10 +1313,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 child: ChoiceChip(
                   label: const Center(child: Text("BẾP TRUNG TÂM (1)")),
                   selected: _facilitySubTab == "KITCHEN",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _facilitySubTab == "KITCHEN" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                   ),
@@ -769,10 +1330,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 child: ChoiceChip(
                   label: const Center(child: Text("DANH SÁCH CỬA HÀNG")),
                   selected: _facilitySubTab == "STORES",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _facilitySubTab == "STORES" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                   ),
@@ -840,53 +1401,20 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
             const SizedBox(height: 12),
             _buildDetailField("Công suất tối đa", "$capacity phần ăn/ngày"),
             const SizedBox(height: 12),
+            const SizedBox(height: 12),
             _buildDetailField("Tọa độ Geolocation", "Vĩ độ: $lat, Kinh độ: $lng"),
-            const SizedBox(height: 20),
-            
-            // Map simulator widget
-            Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        "https://api.mapbox.com/styles/v1/mapbox/dark-v10/static/pin-s-a+ff5500($lng,$lat)/$lng,$lat,14/600x300?access_token=mock",
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          // Fallback to stylized grid mapping
-                          return Container(
-                            color: const Color(0xff090909),
-                            child: CustomPaint(
-                              painter: MapGridPainter(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.location_on_rounded, color: Colors.redAccent, size: 38),
-                        SizedBox(height: 4),
-                        Text(
-                          "Bếp trung tâm đang trực tuyến",
-                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, shadows: [Shadow(blurRadius: 4, color: Colors.black)]),
-                        ),
-                      ],
-                    ),
-                  )
-                ],
-              ),
+            const SizedBox(height: 16),
+            const Text(
+              "BẢN ĐỒ BẾP TRUNG TÂM (GOONG MAP)",
+              style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+            ),
+            const SizedBox(height: 8),
+            GoongMapViewWidget(
+              initialLat: (lat is num ? lat.toDouble() : 21.028511),
+              initialLng: (lng is num ? lng.toDouble() : 105.804817),
+              title: name,
+              address: address,
+              height: 200,
             ),
           ],
         ),
@@ -950,6 +1478,15 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                       _buildInfoRow(Icons.sync_rounded, "Chu kỳ đối soát", cycle),
                       const SizedBox(height: 6),
                       _buildInfoRow(Icons.map_rounded, "Tọa độ", "Vĩ độ: $lat, Kinh độ: $lng"),
+                      const SizedBox(height: 12),
+                      GoongMapViewWidget(
+                        initialLat: (lat is num ? lat.toDouble() : 21.028511),
+                        initialLng: (lng is num ? lng.toDouble() : 105.804817),
+                        title: name,
+                        address: addr,
+                        height: 150,
+                        showSearch: false,
+                      ),
                     ],
                   ),
                 );
@@ -1114,10 +1651,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                   child: ChoiceChip(
                     label: Text(status == 'ALL' ? 'Tất cả' : status),
                     selected: isSelected,
-                    selectedColor: Colors.orange,
-                    backgroundColor: Colors.white10,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.black : Colors.white70,
+                    selectedColor: Colors.amber,
+                    backgroundColor: Colors.white,
+                    labelStyle: const TextStyle(
+                      color: Colors.black,
                       fontWeight: FontWeight.bold,
                       fontSize: 10,
                     ),
@@ -1392,7 +1929,13 @@ class _GoongMapAddressFieldState extends State<GoongMapAddressField> {
         TextFormField(
           controller: _controller,
           style: const TextStyle(color: Colors.white, fontSize: 14),
-          onChanged: _searchAddress,
+          onChanged: (val) {
+            _searchAddress(val);
+            final hash = val.hashCode;
+            final fallbackLat = 10.75 + (hash.abs() % 100) / 1000.0;
+            final fallbackLng = 106.65 + (hash.abs() % 200) / 1000.0;
+            widget.onLocationSelected(val, _latitude ?? fallbackLat, _longitude ?? fallbackLng);
+          },
           validator: (val) => val == null || val.trim().isEmpty ? "Vui lòng nhập địa chỉ" : null,
           decoration: InputDecoration(
             hintText: widget.hint,
@@ -1667,7 +2210,7 @@ class _AddStoreFormState extends State<AddStoreForm> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_address.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng chọn địa chỉ bằng Goong Map")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng nhập hoặc chọn địa chỉ cho cửa hàng")));
       return;
     }
 

@@ -156,6 +156,42 @@ class ApiService {
       token: token,
     );
 
+    // Automatically fetch full name (fullName) using GET /api/v1/users/{id} or GET /api/v1/users/search
+    try {
+      final int? uId = rawData['userId'] != null
+          ? int.tryParse(rawData['userId'].toString())
+          : (decodedPayload['userId'] != null
+                ? int.tryParse(decodedPayload['userId'].toString())
+                : null);
+      Map<String, dynamic>? profile;
+      if (uId != null && uId > 0) {
+        profile = await fetchUserById(uId);
+      }
+      if (profile == null && cleanUsername.isNotEmpty) {
+        profile = await searchUser(username: cleanUsername);
+      }
+      if (profile != null) {
+        final String fn =
+            (profile['fullName'] ??
+                    profile['name'] ??
+                    profile['username'] ??
+                    '')
+                .toString();
+        if (fn.isNotEmpty) {
+          currentUser = currentUser!.copyWith(
+            name: fn,
+            email: (profile['email'] ?? currentUser!.email).toString(),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch full user profile: $e");
+    }
+
+    if (currentUser!.name == 'User' || currentUser!.name.isEmpty) {
+      currentUser = currentUser!.copyWith(name: cleanUsername);
+    }
+
     return currentUser!;
   }
 
@@ -664,6 +700,19 @@ class ApiService {
     return true;
   }
 
+  /// 24b. Lấy chi tiết đơn hàng nhượng quyền (GET /api/v1/orders/{id})
+  static Future<Map<String, dynamic>> getOrderDetails(int orderId) async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/orders/$orderId'),
+          headers: _getAuthHeaders(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
   // ==========================================
   // 6. NHÓM CHỨC NĂNG KẾ HOẠCH SẢN XUẤT (PRODUCTION PLANS)
   // ==========================================
@@ -684,6 +733,134 @@ class ApiService {
 
     final res = _handleResponse(response);
     return _unwrapPageContent(res);
+  }
+
+  /// 25b. Lấy chi tiết Kế hoạch sản xuất (GET /api/v1/production-plans/{id})
+  static Future<Map<String, dynamic>> getProductionPlanDetails(
+    int planId,
+  ) async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/production-plans/$planId'),
+          headers: _getAuthHeaders(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// 25c. Giải mã danh sách sản phẩm thuộc Kế hoạch sản xuất từ Đơn hàng (GET /api/v1/orders/{id})
+  static Future<List<Map<String, dynamic>>> resolveProductionPlanItems(
+    Map<String, dynamic> plan,
+  ) async {
+    final List<Map<String, dynamic>> resultItems = [];
+
+    // 1. Direct items check
+    if (plan['items'] != null && (plan['items'] as List).isNotEmpty) {
+      final List rawItems = plan['items'];
+      for (var it in rawItems) {
+        if (it is Map<String, dynamic>) {
+          resultItems.add(it);
+        }
+      }
+      return resultItems;
+    }
+
+    if (plan['orderDetails'] != null && (plan['orderDetails'] as List).isNotEmpty) {
+      final List rawDetails = plan['orderDetails'];
+      for (var it in rawDetails) {
+        if (it is Map<String, dynamic>) {
+          resultItems.add({
+            'productId': it['productId'] ?? it['id'] ?? 0,
+            'productName': it['productName'] ?? it['name'] ?? 'Sản phẩm',
+            'plannedQuantity': it['quantity'] ?? it['plannedQuantity'] ?? 0,
+            'unit': it['unit'] ?? 'PIECE',
+          });
+        }
+      }
+      return resultItems;
+    }
+
+    // 2. Extract Order IDs
+    final List<int> orderIdsToFetch = [];
+    if (plan['orderId'] != null) {
+      final idVal = int.tryParse(plan['orderId'].toString());
+      if (idVal != null && idVal > 0) orderIdsToFetch.add(idVal);
+    }
+    if (plan['orderIds'] != null && plan['orderIds'] is List) {
+      for (var o in plan['orderIds']) {
+        final idVal = int.tryParse(o.toString());
+        if (idVal != null && idVal > 0 && !orderIdsToFetch.contains(idVal)) {
+          orderIdsToFetch.add(idVal);
+        }
+      }
+    }
+    if (plan['orders'] != null && plan['orders'] is List) {
+      for (var o in plan['orders']) {
+        if (o is Map) {
+          final idVal = int.tryParse((o['orderId'] ?? o['id'] ?? '').toString());
+          if (idVal != null && idVal > 0 && !orderIdsToFetch.contains(idVal)) {
+            orderIdsToFetch.add(idVal);
+          }
+        } else if (o is num) {
+          final idVal = o.toInt();
+          if (idVal > 0 && !orderIdsToFetch.contains(idVal)) {
+            orderIdsToFetch.add(idVal);
+          }
+        }
+      }
+    }
+
+    // 3. Fetch orders via GET /api/v1/orders/{id}
+    final Map<int, Map<String, dynamic>> aggregatedMap = {};
+    for (int oid in orderIdsToFetch) {
+      try {
+        final orderData = await getOrderDetails(oid);
+        final List details = orderData['orderDetails'] ?? [];
+        for (var item in details) {
+          final int pid = item['productId'] ?? item['id'] ?? 0;
+          final String pName = item['productName'] ?? item['name'] ?? 'Sản phẩm #$pid';
+          final int qty = int.tryParse((item['quantity'] ?? item['plannedQuantity'] ?? 0).toString()) ?? 0;
+          final String unit = (item['unit'] ?? 'PIECE').toString();
+
+          if (aggregatedMap.containsKey(pid)) {
+            aggregatedMap[pid]!['plannedQuantity'] = (aggregatedMap[pid]!['plannedQuantity'] as int) + qty;
+          } else {
+            aggregatedMap[pid] = {
+              'productId': pid,
+              'productName': pName,
+              'plannedQuantity': qty,
+              'unit': unit,
+            };
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching order #$oid for plan: $e");
+      }
+    }
+
+    if (aggregatedMap.isNotEmpty) {
+      return aggregatedMap.values.toList();
+    }
+
+    // 4. Fallback to GET /api/v1/production-plans/{id}
+    final int planId = int.tryParse((plan['planId'] ?? plan['id'] ?? '').toString()) ?? 0;
+    if (planId > 0) {
+      try {
+        final planDetail = await getProductionPlanDetails(planId);
+        if (planDetail['items'] != null && (planDetail['items'] as List).isNotEmpty) {
+          for (var it in planDetail['items']) {
+            if (it is Map<String, dynamic>) {
+              resultItems.add(it);
+            }
+          }
+          return resultItems;
+        }
+      } catch (_) {}
+    }
+
+    return resultItems;
   }
 
   /// 26. Bắt đầu Kế hoạch sản xuất (POST /api/v1/production-plans/{id}/start)
@@ -717,7 +894,20 @@ class ApiService {
     return true;
   }
 
-  /// 27b. Cập nhật Trạng thái Lệnh sản xuất (PATCH /api/v1/production-plans/{id}/status)
+  /// 27b. Đánh dấu Lệnh sản xuất sẵn sàng (PUT /api/v1/production-plans/{id}/ready)
+  static Future<bool> markProductionPlanReady(int planId) async {
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/production-plans/$planId/ready'),
+          headers: _getAuthHeaders(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    _handleResponse(response);
+    return true;
+  }
+
+  /// 27c. Cập nhật Trạng thái Lệnh sản xuất (PATCH /api/v1/production-plans/{id}/status)
   static Future<bool> updateProductionPlanStatus(
     int planId,
     String status,
@@ -1081,6 +1271,386 @@ class ApiService {
     } catch (e) {
       debugPrint("Failed to fetch recent activities: $e");
       return [];
+    }
+  }
+
+  // ==========================================
+  // NHÓM CÔNG THỨC (RECIPES)
+  // ==========================================
+
+  /// Lấy công thức đang hoạt động của sản phẩm (GET /api/v1/recipes/product/{productId}/active)
+  static Future<Map<String, dynamic>?> fetchActiveRecipe(int productId) async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/recipes/product/$productId/active'),
+          headers: _getAuthHeaders(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return null;
+  }
+
+  /// Tạo mới Công thức chế biến (POST /api/v1/recipes)
+  static Future<Map<String, dynamic>> createRecipe(
+    Map<String, dynamic> recipeData,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/recipes'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode(recipeData),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  // ==========================================
+  // NHÓM QUẢN LÝ QUYỀN HẠN (PRIVILEGES) & VAI TRÒ (ROLES) & USER PROFILE & MAPS
+  // ==========================================
+
+  /// Lấy thông tin người dùng theo ID (GET /api/v1/users/{id})
+  static Future<Map<String, dynamic>?> fetchUserById(int userId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/users/$userId'), headers: _getAuthHeaders())
+          .timeout(const Duration(seconds: 10));
+
+      final data = _handleResponse(response);
+      final rawData = (_unwrapData(data) as Map<String, dynamic>?) ?? {};
+      return rawData;
+    } catch (e) {
+      debugPrint("Failed to fetch user by ID ($userId): $e");
+      return null;
+    }
+  }
+
+  /// Tìm kiếm người dùng theo username/email (GET /api/v1/users/search)
+  static Future<Map<String, dynamic>?> searchUser({
+    String? username,
+    String? email,
+  }) async {
+    try {
+      var urlStr = '$_baseUrl/users/search';
+      final params = <String>[];
+      if (username != null && username.isNotEmpty) {
+        params.add('username=${Uri.encodeComponent(username)}');
+      }
+      if (email != null && email.isNotEmpty) {
+        params.add('email=${Uri.encodeComponent(email)}');
+      }
+      if (params.isNotEmpty) {
+        urlStr += '?${params.join('&')}';
+      }
+
+      final response = await http
+          .get(Uri.parse(urlStr), headers: _getAuthHeaders())
+          .timeout(const Duration(seconds: 10));
+
+      final data = _handleResponse(response);
+      return _unwrapData(data) as Map<String, dynamic>?;
+    } catch (e) {
+      debugPrint("Failed to search user: $e");
+      return null;
+    }
+  }
+
+  /// Lấy tất cả Quyền hạn (GET /api/v1/privileges)
+  static Future<List<Map<String, dynamic>>> fetchPrivileges() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/privileges'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+    if (data is List) {
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// Lấy chi tiết Quyền hạn (GET /api/v1/privileges/{id})
+  static Future<Map<String, dynamic>?> fetchPrivilegeById(int id) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/privileges/$id'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    final data = _unwrapData(res);
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    return null;
+  }
+
+  /// Tạo mới Quyền hạn (POST /api/v1/privileges)
+  static Future<Map<String, dynamic>> createPrivilege(
+    String code,
+    String description,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/privileges'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'code': code.trim(),
+            'description': description.trim(),
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Cập nhật Quyền hạn (PUT /api/v1/privileges/{id})
+  static Future<Map<String, dynamic>> updatePrivilege(
+    int id,
+    String code,
+    String description,
+  ) async {
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/privileges/$id'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'code': code.trim(),
+            'description': description.trim(),
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Xóa Quyền hạn (DELETE /api/v1/privileges/{id})
+  static Future<bool> deletePrivilege(int id) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/privileges/$id'),
+          headers: _getAuthHeaders(),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    _handleResponse(response);
+    return true;
+  }
+
+  // ==========================================
+  // NHÓM CHỨC NĂNG VAI TRÒ (ROLES API)
+  // ==========================================
+
+  /// Lấy chi tiết Vai trò theo ID (GET /api/v1/roles/{id})
+  static Future<Map<String, dynamic>?> fetchRoleById(int id) async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/roles/$id'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return _unwrapData(res) as Map<String, dynamic>?;
+  }
+
+  /// Tạo mới Vai trò (POST /api/v1/roles)
+  static Future<Map<String, dynamic>> createRole(
+    String roleName,
+    List<int> privilegeIds,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/roles'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'roleName': roleName.trim(),
+            'privilegeIds': privilegeIds,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Cập nhật Vai trò (PUT /api/v1/roles/{id})
+  static Future<Map<String, dynamic>> updateRole(
+    int id,
+    String roleName,
+    List<int> privilegeIds,
+  ) async {
+    final response = await http
+        .put(
+          Uri.parse('$_baseUrl/roles/$id'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode({
+            'roleName': roleName.trim(),
+            'privilegeIds': privilegeIds,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Xóa Vai trò (DELETE /api/v1/roles/{id})
+  static Future<bool> deleteRole(int id) async {
+    final response = await http
+        .delete(Uri.parse('$_baseUrl/roles/$id'), headers: _getAuthHeaders())
+        .timeout(const Duration(seconds: 10));
+
+    _handleResponse(response);
+    return true;
+  }
+
+  /// Gán quyền cho Vai trò (POST /api/v1/roles/{roleId}/privileges)
+  static Future<Map<String, dynamic>> assignPrivilegesToRole(
+    int roleId,
+    List<int> privilegeIds,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/roles/$roleId/privileges'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode(privilegeIds),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  /// Gỡ quyền khỏi Vai trò (DELETE /api/v1/roles/{roleId}/privileges)
+  static Future<Map<String, dynamic>> removePrivilegesFromRole(
+    int roleId,
+    List<int> privilegeIds,
+  ) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/roles/$roleId/privileges'),
+          headers: _getAuthHeaders(),
+          body: jsonEncode(privilegeIds),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    final res = _handleResponse(response);
+    return (_unwrapData(res) as Map<String, dynamic>?) ?? {};
+  }
+
+  // --- Goong Map APIs ---
+
+  /// Goong Place Autocomplete API
+  static Future<List<Map<String, dynamic>>> goongAutoComplete(
+    String input,
+  ) async {
+    final String apiKey =
+        dotenv.maybeGet('GOONG_API_KEY') ?? 'YOUR_GOONG_API_KEY';
+    final url = Uri.parse(
+      'https://rsapi.goong.io/Place/AutoComplete?api_key=$apiKey&input=${Uri.encodeComponent(input)}',
+    );
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['predictions'] is List) {
+          return (data['predictions'] as List).cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (e) {
+      debugPrint("Goong Autocomplete error: $e");
+    }
+    return [];
+  }
+
+  /// Goong Place Detail API
+  static Future<Map<String, dynamic>?> goongPlaceDetail(String placeId) async {
+    final String apiKey =
+        dotenv.maybeGet('GOONG_API_KEY') ?? 'YOUR_GOONG_API_KEY';
+    final url = Uri.parse(
+      'https://rsapi.goong.io/Place/Detail?api_key=$apiKey&place_id=${Uri.encodeComponent(placeId)}',
+    );
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['result'] as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      debugPrint("Goong Place Detail error: $e");
+    }
+    return null;
+  }
+
+  /// Goong Directions API
+  static Future<Map<String, dynamic>?> goongDirections(
+    String origin,
+    String destination,
+  ) async {
+    final String apiKey =
+        dotenv.maybeGet('GOONG_API_KEY') ?? 'YOUR_GOONG_API_KEY';
+    final url = Uri.parse(
+      'https://rsapi.goong.io/Direction?origin=${Uri.encodeComponent(origin)}&destination=${Uri.encodeComponent(destination)}&vehicle=car&api_key=$apiKey',
+    );
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      debugPrint("Goong Directions error: $e");
+    }
+    return null;
+  }
+
+  /// 39. AI Phân tích điều hành (Executive Cockpit)
+  static Future<Map<String, dynamic>?> analyzeAiExecutiveCockpit() async {
+    final url = Uri.parse('${_resolveBaseUrl()}/ai/reports/analyze');
+    try {
+      final response = await http
+          .post(url, headers: _getAuthHeaders())
+          .timeout(const Duration(seconds: 65));
+      final body = _handleResponse(response);
+      if (body != null && body is Map && body.containsKey('data')) {
+        return body['data'];
+      }
+      return body;
+    } catch (e) {
+      debugPrint("Lỗi khi gọi AI phân tích điều hành: $e");
+      rethrow;
+    }
+  }
+
+  /// 40. AI Hỏi đáp số liệu điều hành
+  static Future<Map<String, dynamic>?> chatAiExecutiveData({
+    required String question,
+    String? chatHistory,
+  }) async {
+    final url = Uri.parse('${_resolveBaseUrl()}/ai/reports/chat');
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: _getAuthHeaders(),
+            body: jsonEncode({
+              'question': question,
+              if (chatHistory != null) 'chatHistory': chatHistory,
+            }),
+          )
+          .timeout(const Duration(seconds: 65));
+      final body = _handleResponse(response);
+      if (body != null && body is Map && body.containsKey('data')) {
+        return body['data'];
+      }
+      return body;
+    } catch (e) {
+      debugPrint("Lỗi khi gọi AI hỏi đáp: $e");
+      rethrow;
     }
   }
 }

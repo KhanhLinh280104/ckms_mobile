@@ -1,17 +1,71 @@
 services:
-  # Service Nginx web ứng dụng mobile của bạn giữ nguyên
+  # 1. DATABASE POSTGRESQL
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: ckms_db
+    restart: always
+    environment:
+      POSTGRES_DB: ckms_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init_data.sql:/docker-entrypoint-initdb.d/init_data.sql
+    networks:
+      - ckms_network
+
+  # 2. BACKEND SPRING BOOT (Đã trỏ đúng về ổ D:\...\BE\CKMS-BE)
+  ckms-backend:
+    build:
+      context: ../../BE/CKMS-BE
+      dockerfile: Dockerfile
+    container_name: ckms_backend
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      DB_HOST: postgres-db
+      DB_PORT: 5432
+      DB_NAME: ckms_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      CORS_ALLOWED_ORIGINS: "*"
+    depends_on:
+      - postgres-db
+      - ai-service
+    networks:
+      - ckms_network
+
+  # 3. SERVICE AI OLLAMA
+  ai-service:
+    image: ollama/ollama:latest
+    container_name: ckms_ai_ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - ckms_network
+
+  # 4. GIAO DIỆN WEB (Đã trỏ đúng về ổ D:\...\FE_WEB\CKMS-FE)
   ckms-web:
     build:
-      context: .
+      context: ../../FE_WEB/CKMS-FE
       dockerfile: Dockerfile
     container_name: ckms_mobile_web
+    restart: always
     ports:
       - "8082:80"
-    restart: always
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - ckms-backend
+    networks:
+      - ckms_network
 
-  # THÊM SERVICE NGROK VÀO ĐÂY:
+  # 5. TUNNEL NGROK (Phát sóng ra Internet cho App Mobile)
   ngrok:
     image: ngrok/ngrok:latest
     container_name: ngrok-tunnel
@@ -20,18 +74,16 @@ services:
       - "4040:4040"
     command:
       - "http"
-      - "ckms-web:80" # Trỏ thẳng vào tên service ckms-web ở cổng 80 bên trong Docker!
+      - "ckms-web:80"
     environment:
-      - NGROK_AUTHTOKEN=3GfSTnzDcsvvR00NOEBPBMK2Kkb_5LQ6cnMdMF84Bs2FLN2X4
-
-  ai-service:
-    image: ollama/ollama:latest
-    container_name: ckms_ai_ollama
-    ports:
-      - "11434:11434" # Mở cổng này để Backend từ máy Windows có thể gọi vào dễ dàng
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: always
+      - NGROK_AUTHTOKEN=3GfSTn7DCsvvR00NOFBPBNK2Kkb_5lQ6cnMdMF84Bs2FlN2X4
+    networks:
+      - ckms_network
 
 volumes:
-  ollama_data: # Khai báo ổ đĩa ảo để lưu mô hình AI vĩnh viễn, tắt máy không bị mất
+  pgdata:
+  ollama-data:
+
+networks:
+  ckms_network:
+    driver: bridge

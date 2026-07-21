@@ -40,9 +40,28 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
       vsync: this,
       initialIndex: widget.initialTab.clamp(0, 2),
     );
+    _ensureUserFullName();
     _loadOrders();
     _loadShipments();
     _loadBilling();
+  }
+
+  Future<void> _ensureUserFullName() async {
+    final user = ApiService.currentUser;
+    if (user != null && (user.name.isEmpty || user.name == 'User')) {
+      final uId = int.tryParse(user.id);
+      if (uId != null && uId > 0) {
+        final profile = await ApiService.fetchUserById(uId);
+        if (profile != null) {
+          final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+          if (fn != null && fn.toString().isNotEmpty && mounted) {
+            setState(() {
+              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+            });
+          }
+        }
+      }
+    }
   }
 
   Future<void> _loadBilling() async {
@@ -176,21 +195,39 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
   String _formatCurrency(dynamic amount) {
     if (amount == null) return "0 đ";
     try {
-      final int parsed = int.parse(amount.toString());
-      final String str = parsed.toString();
-      if (str.length <= 3) return "$str đ";
-      
-      final buffer = StringBuffer();
-      int count = 0;
-      for (int i = str.length - 1; i >= 0; i--) {
-        buffer.write(str[i]);
-        count++;
-        if (count == 3 && i != 0) {
-          buffer.write('.');
-          count = 0;
+      final double val = double.parse(amount.toString());
+      if (val % 1 == 0) {
+        final int intVal = val.toInt();
+        final String str = intVal.toString();
+        if (str.length <= 3) return "$str đ";
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
         }
+        return "${buffer.toString().split('').reversed.join('')} đ";
+      } else {
+        final int intPart = val.truncate();
+        final String decimalPart = (val - intPart).toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+        final String str = intPart.toString();
+        final buffer = StringBuffer();
+        int count = 0;
+        for (int i = str.length - 1; i >= 0; i--) {
+          buffer.write(str[i]);
+          count++;
+          if (count == 3 && i != 0) {
+            buffer.write('.');
+            count = 0;
+          }
+        }
+        final formattedInt = buffer.toString().split('').reversed.join('');
+        return "$formattedInt,$decimalPart đ";
       }
-      return "${buffer.toString().split('').reversed.join('')} đ";
     } catch (_) {
       return "$amount đ";
     }
@@ -255,9 +292,19 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.orange, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "CỬA HÀNG NHƯỢNG QUYỀN",
-          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "CỬA HÀNG NHƯỢNG QUYỀN",
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            Text(
+              "Xin chào, ${ApiService.currentUser?.name.isNotEmpty == true && ApiService.currentUser?.name != 'User' ? ApiService.currentUser!.name : 'Cửa hàng'}",
+              style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,
