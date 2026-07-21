@@ -71,9 +71,16 @@ class UserModel {
       authoritiesList.addAll((responseData['privileges'] as List).map((e) => e.toString()));
     }
 
+    final String extractedName = responseData['fullName'] ??
+        responseData['name'] ??
+        responseData['username'] ??
+        decodedJwt['sub'] ??
+        decodedJwt['username'] ??
+        'User';
+
     return UserModel(
       id: (responseData['id'] ?? responseData['userId'] ?? decodedJwt['userId'] ?? 'default-user-id').toString(),
-      name: responseData['fullName'] ?? responseData['username'] ?? 'User',
+      name: extractedName,
       email: responseData['email'] ?? '',
       role: roleClean,
       token: token,
@@ -82,6 +89,32 @@ class UserModel {
       kitchenId: kitchenId,
       kitchenName: kitchenName,
       authorities: authoritiesList.toSet().toList(), // Deduplicate
+    );
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? role,
+    String? token,
+    int? storeId,
+    String? storeName,
+    int? kitchenId,
+    String? kitchenName,
+    List<String>? authorities,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      token: token ?? this.token,
+      storeId: storeId ?? this.storeId,
+      storeName: storeName ?? this.storeName,
+      kitchenId: kitchenId ?? this.kitchenId,
+      kitchenName: kitchenName ?? this.kitchenName,
+      authorities: authorities ?? this.authorities,
     );
   }
 

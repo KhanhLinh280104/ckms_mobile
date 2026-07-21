@@ -40,10 +40,29 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTab);
+    _ensureUserFullName();
     _loadProducts();
     _loadMaterials();
     _loadCategories();
     _loadBillingStatements();
+  }
+
+  Future<void> _ensureUserFullName() async {
+    final user = ApiService.currentUser;
+    if (user != null && (user.name.isEmpty || user.name == 'User')) {
+      final uId = int.tryParse(user.id);
+      if (uId != null && uId > 0) {
+        final profile = await ApiService.fetchUserById(uId);
+        if (profile != null) {
+          final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+          if (fn != null && fn.toString().isNotEmpty && mounted) {
+            setState(() {
+              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+            });
+          }
+        }
+      }
+    }
   }
 
   @override
@@ -365,9 +384,19 @@ class _ManagerHubScreenState extends State<ManagerHubScreen> with SingleTickerPr
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.orange, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "TRUNG TÂM PHÂN PHỐI",
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "TRUNG TÂM PHÂN PHỐI",
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            Text(
+              "Xin chào, ${ApiService.currentUser?.name.isNotEmpty == true && ApiService.currentUser?.name != 'User' ? ApiService.currentUser!.name : 'Manager'}",
+              style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,

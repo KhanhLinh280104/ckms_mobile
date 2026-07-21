@@ -40,9 +40,28 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
       vsync: this,
       initialIndex: widget.initialTab.clamp(0, 2),
     );
+    _ensureUserFullName();
     _loadOrders();
     _loadShipments();
     _loadBilling();
+  }
+
+  Future<void> _ensureUserFullName() async {
+    final user = ApiService.currentUser;
+    if (user != null && (user.name.isEmpty || user.name == 'User')) {
+      final uId = int.tryParse(user.id);
+      if (uId != null && uId > 0) {
+        final profile = await ApiService.fetchUserById(uId);
+        if (profile != null) {
+          final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+          if (fn != null && fn.toString().isNotEmpty && mounted) {
+            setState(() {
+              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+            });
+          }
+        }
+      }
+    }
   }
 
   Future<void> _loadBilling() async {
@@ -273,9 +292,19 @@ class _StoreStaffHubScreenState extends State<StoreStaffHubScreen> with SingleTi
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.orange, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "CỬA HÀNG NHƯỢNG QUYỀN",
-          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "CỬA HÀNG NHƯỢNG QUYỀN",
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            Text(
+              "Xin chào, ${ApiService.currentUser?.name.isNotEmpty == true && ApiService.currentUser?.name != 'User' ? ApiService.currentUser!.name : 'Cửa hàng'}",
+              style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,

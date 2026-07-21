@@ -27,8 +27,27 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
+    _ensureUserFullName();
     _loadProductionPlans();
     _loadShipments();
+  }
+
+  Future<void> _ensureUserFullName() async {
+    final user = ApiService.currentUser;
+    if (user != null && (user.name.isEmpty || user.name == 'User')) {
+      final uId = int.tryParse(user.id);
+      if (uId != null && uId > 0) {
+        final profile = await ApiService.fetchUserById(uId);
+        if (profile != null) {
+          final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+          if (fn != null && fn.toString().isNotEmpty && mounted) {
+            setState(() {
+              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+            });
+          }
+        }
+      }
+    }
   }
 
   @override
@@ -45,10 +64,33 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
 
     try {
       final list = await ApiService.fetchProductionPlans();
+      for (var p in list) {
+        if (p['items'] == null || (p['items'] as List).isEmpty) {
+          try {
+            final items = await ApiService.resolveProductionPlanItems(p);
+            if (items.isNotEmpty) {
+              p['items'] = items;
+            }
+          } catch (_) {}
+        }
+      }
+
       if (mounted) {
         setState(() {
           if (_selectedPlanStatus != "ALL") {
-            _productionPlans = list.where((p) => p['status'] == _selectedPlanStatus).toList();
+            _productionPlans = list.where((p) {
+              final s = (p['status'] ?? '').toString().toUpperCase();
+              if (_selectedPlanStatus == 'PLANNED') {
+                return s == 'PLANNED' || s == 'CREATED' || s == 'PENDING' || s == 'DRAFT';
+              } else if (_selectedPlanStatus == 'READY_TO_PRODUCE') {
+                return s == 'READY_TO_PRODUCE';
+              } else if (_selectedPlanStatus == 'IN_PRODUCTION') {
+                return s == 'IN_PRODUCTION' || s == 'PRODUCING';
+              } else if (_selectedPlanStatus == 'FINISHED') {
+                return s == 'FINISHED' || s == 'PRODUCED' || s == 'COMPLETED';
+              }
+              return s == _selectedPlanStatus;
+            }).toList();
           } else {
             _productionPlans = list;
           }
@@ -93,14 +135,13 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
 
   Future<void> _markReadyPlan(int planId) async {
     try {
-      final ok = await ApiService.updateProductionPlanStatus(planId, 'READY_TO_PRODUCE');
+      final ok = await ApiService.markProductionPlanReady(planId);
       if (ok) {
-        _showSnackBar("Đã đánh dấu SẴN SÀNG SẢN XUẤT cho lệnh #$planId!", Colors.green);
+        _showSnackBar("Đã đánh dấu ĐÃ SẴN SÀNG cho lệnh sản xuất #$planId!", Colors.green);
         _loadProductionPlans();
       }
     } catch (e) {
-      _showSnackBar("Cập nhật trạng thái Sẵn sàng cho lệnh #$planId", Colors.green);
-      _loadProductionPlans();
+      _showSnackBar("Lỗi đánh dấu sẵn sàng: $e", Colors.redAccent);
     }
   }
 
@@ -116,15 +157,165 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
     }
   }
 
-  Future<void> _completePlan(int planId) async {
+  Future<void> _completePlan(Map<String, dynamic> plan) async {
+    final int planId = plan['planId'] ?? plan['id'] ?? 0;
+    List items = await ApiService.resolveProductionPlanItems(plan);
+
+    if (items.isEmpty) {
+      try {
+        final planDetail = await ApiService.getProductionPlanDetails(planId);
+        if (planDetail.isNotEmpty) {
+          items = planDetail['items'] ?? planDetail['details'] ?? planDetail['outputs'] ?? [];
+        }
+      } catch (_) {}
+    }
+
+    final Map<int, TextEditingController> qtyControllers = {};
+    for (var item in items) {
+      final pid = item['productId'] ?? item['id'] ?? 0;
+      final plannedQty = item['plannedQuantity'] ?? item['targetQuantity'] ?? item['quantity'] ?? 1;
+      qtyControllers[pid] = TextEditingController(text: plannedQty.toString());
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xff1A1A1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.done_all_rounded, color: Colors.greenAccent, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Báo sản lượng #$planId",
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Xác nhận sản lượng sản xuất thực tế:",
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                if (items.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      "Nhấn xác nhận để hoàn tất lệnh sản xuất.",
+                      style: TextStyle(color: Colors.orange, fontSize: 12),
+                    ),
+                  )
+                else
+                  ...items.map((item) {
+                    final pid = item['productId'] ?? item['id'] ?? 0;
+                    final pName = item['productName'] ?? item['name'] ?? 'Sản phẩm #$pid';
+                    final unit = item['unit'] ?? 'PIECE';
+                    final ctrl = qtyControllers[pid];
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "$pName ($unit)",
+                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: ctrl,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                            decoration: InputDecoration(
+                              labelText: "Số lượng thực tế",
+                              labelStyle: const TextStyle(color: Colors.grey, fontSize: 12),
+                              filled: true,
+                              fillColor: Colors.black,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Colors.orange),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                final List<Map<String, dynamic>> outputs = [];
+                for (var item in items) {
+                  final pid = item['productId'] ?? item['id'] ?? 0;
+                  final ctrl = qtyControllers[pid];
+                  final actualQty = int.tryParse(ctrl?.text ?? '') ?? (item['plannedQuantity'] ?? item['quantity'] ?? 1);
+                  outputs.add({
+                    'productId': pid,
+                    'actualQty': actualQty,
+                  });
+                }
+
+                if (outputs.isEmpty) {
+                  outputs.add({
+                    'productId': plan['productId'] ?? 1,
+                    'actualQty': 1,
+                  });
+                }
+
+                Navigator.pop(context);
+                await _submitCompletePlan(planId, outputs);
+              },
+              child: const Text("XÁC NHẬN HOÀN THÀNH", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _submitCompletePlan(int planId, List<Map<String, dynamic>> outputs) async {
     try {
-      final ok = await ApiService.finishProductionPlan(planId);
+      final ok = await ApiService.finishProductionPlan(planId, outputs: outputs);
       if (ok) {
         _showSnackBar("Đã hoàn thành sản xuất lệnh #$planId!", Colors.green);
         _loadProductionPlans();
       }
     } catch (e) {
-      _showSnackBar("Lỗi: $e", Colors.redAccent);
+      _showSnackBar("Lỗi hoàn thành sản xuất: ${e.toString().replaceAll('Exception: ', '')}", Colors.redAccent);
     }
   }
 
@@ -156,19 +347,43 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
 
   Color _getPlanStatusColor(String status) {
     switch (status.toUpperCase()) {
-      case 'COMPLETED': return Colors.greenAccent;
-      case 'PRODUCING': return Colors.blueAccent;
-      case 'READY_TO_PRODUCE': return Colors.orangeAccent;
-      default: return Colors.grey;
+      case 'FINISHED':
+      case 'PRODUCED':
+      case 'COMPLETED':
+        return Colors.greenAccent;
+      case 'IN_PRODUCTION':
+      case 'PRODUCING':
+        return Colors.blueAccent;
+      case 'READY_TO_PRODUCE':
+        return Colors.amberAccent;
+      case 'PLANNED':
+      case 'CREATED':
+      case 'PENDING':
+      case 'DRAFT':
+        return Colors.orangeAccent;
+      default:
+        return Colors.grey;
     }
   }
 
   String _getPlanStatusLabel(String status) {
     switch (status.toUpperCase()) {
-      case 'COMPLETED': return 'Đã hoàn thành';
-      case 'PRODUCING': return 'Đang sản xuất';
-      case 'READY_TO_PRODUCE': return 'Sẵn sàng sản xuất';
-      default: return status;
+      case 'FINISHED':
+      case 'PRODUCED':
+      case 'COMPLETED':
+        return 'Đã nấu xong';
+      case 'IN_PRODUCTION':
+      case 'PRODUCING':
+        return 'Đang nấu';
+      case 'READY_TO_PRODUCE':
+        return 'Chờ nấu';
+      case 'PLANNED':
+      case 'CREATED':
+      case 'PENDING':
+      case 'DRAFT':
+        return 'Chờ đánh dấu';
+      default:
+        return status;
     }
   }
 
@@ -203,9 +418,19 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.orange, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "ĐIỀU HÀNH BẾP TRUNG TÂM",
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "ĐIỀU HÀNH BẾP TRUNG TÂM",
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            Text(
+              "Xin chào, ${ApiService.currentUser?.name.isNotEmpty == true && ApiService.currentUser?.name != 'User' ? ApiService.currentUser!.name : 'Bếp'}",
+              style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -235,9 +460,10 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
   Widget _buildProductionPlansTab() {
     final statusFilters = [
       {'val': 'ALL', 'label': 'Tất cả'},
-      {'val': 'READY_TO_PRODUCE', 'label': 'Chờ sản xuất'},
-      {'val': 'PRODUCING', 'label': 'Đang nấu'},
-      {'val': 'COMPLETED', 'label': 'Đã xong'},
+      {'val': 'PLANNED', 'label': 'Chờ đánh dấu'},
+      {'val': 'READY_TO_PRODUCE', 'label': 'Chờ nấu'},
+      {'val': 'IN_PRODUCTION', 'label': 'Đang nấu'},
+      {'val': 'FINISHED', 'label': 'Đã nấu xong'},
     ];
 
     return Padding(
@@ -256,16 +482,19 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                 final isSelected = _selectedPlanStatus == filter['val'];
                 return InkWell(
                   onTap: () {
-                    setState(() => _selectedPlanStatus = filter['val']!);
+                    setState(() {
+                      _selectedPlanStatus = filter['val']!;
+                    });
                     _loadProductionPlans();
                   },
                   borderRadius: BorderRadius.circular(10),
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected ? Colors.orange : const Color(0xff1A1A1A),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: isSelected ? Colors.orange : Colors.white.withOpacity(0.04)),
+                      border: Border.all(color: isSelected ? Colors.orange : Colors.white.withOpacity(0.08)),
                     ),
                     child: Center(
                       child: Text(
@@ -307,9 +536,11 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                           final id = plan['planId'] ?? 0;
                           final name = plan['planName'] ?? 'Lệnh sản xuất';
                           final code = plan['batchCode'] ?? '';
-                          final status = plan['status'] ?? 'READY_TO_PRODUCE';
+                          final status = (plan['status'] ?? 'PLANNED').toString();
                           final date = plan['createdAt'] ?? '';
                           final List itemsList = plan['items'] ?? [];
+
+                          final stUpper = status.toUpperCase();
 
                           return Container(
                             padding: const EdgeInsets.all(18),
@@ -333,7 +564,7 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                                             style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                                           ),
                                           const SizedBox(height: 4),
-                                          Text("Mã lô: $code • Ngày lập: ${date.split('T')[0]}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                                          Text("Mã lô: $code • Ngày lập: ${date.contains('T') ? date.split('T')[0] : date}", style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                                         ],
                                       ),
                                     ),
@@ -357,8 +588,9 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                                 const Text("MÓN ĂN CẦN SẢN XUẤT:", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                                 const SizedBox(height: 6),
                                 ...itemsList.map((item) {
-                                  final pName = item['productName'] ?? '';
-                                  final qty = item['plannedQuantity'] ?? 0;
+                                  final pName = item['productName'] ?? item['name'] ?? 'Sản phẩm';
+                                  final qty = item['plannedQuantity'] ?? item['quantity'] ?? 0;
+                                  final actual = item['actualQuantity'] ?? item['actualQty'];
                                   final unit = item['unit'] ?? 'PIECE';
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 4),
@@ -366,35 +598,109 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(pName, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                                        Text("SL: $qty $unit", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                        Text(
+                                          actual != null ? "Kế hoạch: $qty $unit (Thực tế: $actual)" : "SL: $qty $unit",
+                                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                        ),
                                       ],
                                     ),
                                   );
                                 }),
 
+                                // Materials Dropdown
+                                Theme(
+                                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                  child: ExpansionTile(
+                                    tilePadding: EdgeInsets.zero,
+                                    childrenPadding: const EdgeInsets.only(top: 4, bottom: 4),
+                                    iconColor: Colors.orange,
+                                    collapsedIconColor: Colors.grey.shade400,
+                                    title: Row(
+                                      children: [
+                                        const Icon(Icons.inventory_2_outlined, color: Colors.orange, size: 16),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          "NGUYÊN LIỆU CẦN THIẾT (${(plan['materials'] as List?)?.length ?? 0})",
+                                          style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                                        ),
+                                      ],
+                                    ),
+                                    onExpansionChanged: (expanded) async {
+                                      if (expanded && ((plan['materials'] as List?) == null || (plan['materials'] as List).isEmpty)) {
+                                        try {
+                                          final detail = await ApiService.getProductionPlanDetails(id);
+                                          if (detail.isNotEmpty && mounted) {
+                                            setState(() {
+                                              plan['materials'] = detail['materials'] ?? [];
+                                              if (detail['items'] != null && (detail['items'] as List).isNotEmpty) {
+                                                plan['items'] = detail['items'];
+                                              }
+                                            });
+                                          }
+                                        } catch (_) {}
+                                      }
+                                    },
+                                    children: [
+                                      if ((plan['materials'] as List?) == null || (plan['materials'] as List).isEmpty)
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(vertical: 6),
+                                          child: Text("Đang tải hoặc không có thông tin nguyên liệu", style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic)),
+                                        )
+                                      else
+                                        ...((plan['materials'] as List).map((mat) {
+                                          final mName = mat['materialName'] ?? mat['name'] ?? 'Nguyên liệu';
+                                          final reqQty = mat['requiredQuantity'] ?? mat['quantity'] ?? 0;
+                                          final mUnit = mat['unit'] ?? 'KG';
+                                          return Container(
+                                            margin: const EdgeInsets.only(bottom: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withOpacity(0.3),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.grain_rounded, color: Colors.orangeAccent, size: 14),
+                                                    const SizedBox(width: 6),
+                                                    Text(mName, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                                  ],
+                                                ),
+                                                Text("Cần: $reqQty $mUnit", style: const TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList()),
+                                    ],
+                                  ),
+                                ),
+
                                 // Actions
-                                 if (status == 'CREATED' || status == 'PENDING' || status == 'DRAFT') ...[
-                                   const SizedBox(height: 18),
-                                   SizedBox(
-                                     width: double.infinity,
-                                     height: 45,
-                                     child: ElevatedButton(
-                                       style: ElevatedButton.styleFrom(
-                                         backgroundColor: Colors.blueAccent,
-                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                       ),
-                                       onPressed: () => _markReadyPlan(id),
-                                       child: const Row(
-                                         mainAxisAlignment: MainAxisAlignment.center,
-                                         children: [
-                                           Icon(Icons.check_rounded, color: Colors.white, size: 18),
-                                           SizedBox(width: 6),
-                                           Text("ĐÁNH DẤU ĐÃ SẴN SÀNG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                         ],
-                                       ),
-                                     ),
-                                   )
-                                 ] else if (status == 'READY_TO_PRODUCE') ...[
+                                if (stUpper == 'PLANNED' || stUpper == 'CREATED' || stUpper == 'PENDING' || stUpper == 'DRAFT') ...[
+                                  const SizedBox(height: 18),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 45,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.amber,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => _markReadyPlan(id),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.check_circle_outline_rounded, color: Colors.black, size: 18),
+                                          SizedBox(width: 6),
+                                          Text("ĐÁNH DẤU SẴN SÀNG", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                ] else if (stUpper == 'READY_TO_PRODUCE') ...[
                                   const SizedBox(height: 18),
                                   SizedBox(
                                     width: double.infinity,
@@ -410,12 +716,12 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                                         children: [
                                           Icon(Icons.play_arrow_rounded, color: Colors.black, size: 18),
                                           SizedBox(width: 6),
-                                          Text("BẮT ĐẦU SẢN XUẤT", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                                          Text("BẮT ĐẦU NẤU", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
                                         ],
                                       ),
                                     ),
                                   )
-                                ] else if (status == 'PRODUCING') ...[
+                                ] else if (stUpper == 'IN_PRODUCTION' || stUpper == 'PRODUCING') ...[
                                   const SizedBox(height: 18),
                                   SizedBox(
                                     width: double.infinity,
@@ -425,13 +731,13 @@ class _KitchenStaffHubScreenState extends State<KitchenStaffHubScreen> with Sing
                                         backgroundColor: Colors.green,
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
-                                      onPressed: () => _completePlan(id),
+                                      onPressed: () => _completePlan(plan),
                                       child: const Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 18),
+                                          Icon(Icons.done_all_rounded, color: Colors.white, size: 18),
                                           SizedBox(width: 6),
-                                          Text("BÁO HOÀN THÀNH", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                          Text("BÁO HOÀN THÀNH (ĐÃ NẤU XONG)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                                         ],
                                       ),
                                     ),

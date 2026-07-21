@@ -46,6 +46,19 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
 
     try {
+      if (widget.user.name == 'User' || widget.user.name.isEmpty) {
+        final userIdInt = int.tryParse(widget.user.id);
+        if (userIdInt != null && userIdInt > 0) {
+          final profile = await ApiService.fetchUserById(userIdInt);
+          if (profile != null) {
+            final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+            if (fn != null && fn.toString().isNotEmpty) {
+              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+            }
+          }
+        }
+      }
+
       final statsFuture = ApiService.fetchDashboardStats();
       final activitiesFuture = ApiService.fetchRecentActivity();
 
@@ -308,7 +321,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildHeader() {
-    final userName = widget.user.name.isNotEmpty ? widget.user.name : "User";
+    final activeUser = ApiService.currentUser ?? widget.user;
+    final userName = (activeUser.name.isNotEmpty && activeUser.name != 'User')
+        ? activeUser.name
+        : (widget.user.name.isNotEmpty ? widget.user.name : "User");
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(

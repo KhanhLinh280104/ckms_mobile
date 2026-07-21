@@ -33,19 +33,61 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _ensureUserFullName();
     _loadOrders();
     _loadShipments();
     _loadKitchenPlans();
+  }
+
+  Future<void> _ensureUserFullName() async {
+    final user = ApiService.currentUser;
+    if (user != null && (user.name.isEmpty || user.name == 'User')) {
+      final uId = int.tryParse(user.id);
+      if (uId != null && uId > 0) {
+        final profile = await ApiService.fetchUserById(uId);
+        if (profile != null) {
+          final fn = profile['fullName'] ?? profile['name'] ?? profile['username'];
+          if (fn != null && fn.toString().isNotEmpty && mounted) {
+            setState(() {
+              ApiService.currentUser = ApiService.currentUser?.copyWith(name: fn.toString());
+            });
+          }
+        }
+      }
+    }
   }
 
   Future<void> _loadKitchenPlans() async {
     setState(() => _isLoadingKitchenPlans = true);
     try {
       final plans = await ApiService.fetchProductionPlans();
+      for (var p in plans) {
+        if (p['items'] == null || (p['items'] as List).isEmpty) {
+          try {
+            final items = await ApiService.resolveProductionPlanItems(p);
+            if (items.isNotEmpty) {
+              p['items'] = items;
+            }
+          } catch (_) {}
+        }
+      }
+
       if (mounted) {
         setState(() {
           if (_selectedKitchenPlanStatus != "ALL") {
-            _kitchenPlans = plans.where((p) => p['status'] == _selectedKitchenPlanStatus).toList();
+            _kitchenPlans = plans.where((p) {
+              final s = (p['status'] ?? '').toString().toUpperCase();
+              if (_selectedKitchenPlanStatus == 'PLANNED') {
+                return s == 'PLANNED' || s == 'CREATED' || s == 'PENDING' || s == 'DRAFT';
+              } else if (_selectedKitchenPlanStatus == 'READY_TO_PRODUCE') {
+                return s == 'READY_TO_PRODUCE';
+              } else if (_selectedKitchenPlanStatus == 'IN_PRODUCTION') {
+                return s == 'IN_PRODUCTION' || s == 'PRODUCING';
+              } else if (_selectedKitchenPlanStatus == 'FINISHED') {
+                return s == 'FINISHED' || s == 'PRODUCED' || s == 'COMPLETED';
+              }
+              return s == _selectedKitchenPlanStatus;
+            }).toList();
           } else {
             _kitchenPlans = plans;
           }
@@ -486,14 +528,19 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.orange, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "TRUNG TÂM ĐIỀU PHỐI",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "TRUNG TÂM ĐIỀU PHỐI",
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            Text(
+              "Xin chào, ${ApiService.currentUser?.name.isNotEmpty == true && ApiService.currentUser?.name != 'User' ? ApiService.currentUser!.name : 'Coordinator'}",
+              style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -873,9 +920,10 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
   Widget _buildKitchenProgressTab() {
     final statusFilters = [
       {'val': 'ALL', 'label': 'Tất cả'},
-      {'val': 'READY_TO_PRODUCE', 'label': 'Chờ sản xuất'},
-      {'val': 'PRODUCING', 'label': 'Đang nấu'},
-      {'val': 'COMPLETED', 'label': 'Đã xong'},
+      {'val': 'PLANNED', 'label': 'Chờ đánh dấu'},
+      {'val': 'READY_TO_PRODUCE', 'label': 'Chờ nấu'},
+      {'val': 'IN_PRODUCTION', 'label': 'Đang nấu'},
+      {'val': 'FINISHED', 'label': 'Đã nấu xong'},
     ];
 
     return Padding(
@@ -962,26 +1010,36 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                           final plan = _kitchenPlans[index];
                           final id = plan['planId'] ?? plan['id'] ?? 0;
                           final planName = plan['planName'] ?? 'Lệnh sản xuất #$id';
-                          final status = plan['status'] ?? 'READY_TO_PRODUCE';
+                          final status = plan['status'] ?? 'PLANNED';
                           final kitchenName = plan['kitchenName'] ?? 'Bếp trung tâm';
                           final code = plan['batchCode'] ?? '';
                           final date = plan['createdAt'] ?? '';
                           final List items = plan['items'] ?? [];
 
                           Color statusColor = Colors.grey;
-                          String statusText = status;
+                          String statusText = status.toString();
                           switch (status.toString().toUpperCase()) {
+                            case 'FINISHED':
+                            case 'PRODUCED':
                             case 'COMPLETED':
                               statusColor = Colors.greenAccent;
-                              statusText = "Đã hoàn thành";
+                              statusText = "Đã nấu xong";
                               break;
+                            case 'IN_PRODUCTION':
                             case 'PRODUCING':
                               statusColor = Colors.blueAccent;
-                              statusText = "Đang sản xuất";
+                              statusText = "Đang nấu";
                               break;
                             case 'READY_TO_PRODUCE':
+                              statusColor = Colors.amberAccent;
+                              statusText = "Chờ nấu";
+                              break;
+                            case 'PLANNED':
+                            case 'CREATED':
+                            case 'PENDING':
+                            case 'DRAFT':
                               statusColor = Colors.orangeAccent;
-                              statusText = "Sẵn sàng sản xuất";
+                              statusText = "Chờ đánh dấu";
                               break;
                           }
 
@@ -1005,7 +1063,7 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                                           Text(planName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                                           if (code.toString().isNotEmpty || date.toString().isNotEmpty) ...[
                                             const SizedBox(height: 4),
-                                            Text(
+                                        Text(
                                               "${code.toString().isNotEmpty ? 'Mã lô: $code • ' : ''}${date.toString().contains('T') ? 'Ngày: ${date.toString().split('T')[0]}' : ''}",
                                               style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                                             ),
@@ -1032,6 +1090,7 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                                 ...items.map((it) {
                                   final name = it['productName'] ?? it['name'] ?? 'Sản phẩm';
                                   final qty = it['plannedQuantity'] ?? it['quantity'] ?? 0;
+                                  final actual = it['actualQuantity'] ?? it['actualQty'];
                                   final unit = it['unit'] ?? 'PIECE';
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 3),
@@ -1039,11 +1098,86 @@ class _CoordinatorHubScreenState extends State<CoordinatorHubScreen> with Single
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                                        Text("$qty $unit", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                                        Text(
+                                          actual != null ? "Kế hoạch: $qty $unit (Thực tế: $actual)" : "$qty $unit",
+                                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                        ),
                                       ],
                                     ),
                                   );
                                 }),
+
+                                // Materials Dropdown
+                                Theme(
+                                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                  child: ExpansionTile(
+                                    tilePadding: EdgeInsets.zero,
+                                    childrenPadding: const EdgeInsets.only(top: 4, bottom: 4),
+                                    iconColor: Colors.orange,
+                                    collapsedIconColor: Colors.grey.shade400,
+                                    title: Row(
+                                      children: [
+                                        const Icon(Icons.inventory_2_outlined, color: Colors.orange, size: 16),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          "NGUYÊN LIỆU CẦN THIẾT (${(plan['materials'] as List?)?.length ?? 0})",
+                                          style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                                        ),
+                                      ],
+                                    ),
+                                    onExpansionChanged: (expanded) async {
+                                      if (expanded && ((plan['materials'] as List?) == null || (plan['materials'] as List).isEmpty)) {
+                                        final int planId = plan['planId'] ?? plan['id'] ?? 0;
+                                        try {
+                                          final detail = await ApiService.getProductionPlanDetails(planId);
+                                          if (detail.isNotEmpty && mounted) {
+                                            setState(() {
+                                              plan['materials'] = detail['materials'] ?? [];
+                                              if (detail['items'] != null && (detail['items'] as List).isNotEmpty) {
+                                                plan['items'] = detail['items'];
+                                              }
+                                            });
+                                          }
+                                        } catch (_) {}
+                                      }
+                                    },
+                                    children: [
+                                      if ((plan['materials'] as List?) == null || (plan['materials'] as List).isEmpty)
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(vertical: 6),
+                                          child: Text("Đang tải hoặc không có thông tin nguyên liệu", style: TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic)),
+                                        )
+                                      else
+                                        ...((plan['materials'] as List).map((mat) {
+                                          final mName = mat['materialName'] ?? mat['name'] ?? 'Nguyên liệu';
+                                          final reqQty = mat['requiredQuantity'] ?? mat['quantity'] ?? 0;
+                                          final mUnit = mat['unit'] ?? 'KG';
+                                          return Container(
+                                            margin: const EdgeInsets.only(bottom: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withOpacity(0.3),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.grain_rounded, color: Colors.orangeAccent, size: 14),
+                                                    const SizedBox(width: 6),
+                                                    Text(mName, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                                  ],
+                                                ),
+                                                Text("Cần: $reqQty $mUnit", style: const TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList()),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           );
