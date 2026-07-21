@@ -1607,4 +1607,50 @@ class ApiService {
     }
     return null;
   }
+
+  /// 39. AI Phân tích điều hành (Executive Cockpit)
+  static Future<Map<String, dynamic>?> analyzeAiExecutiveCockpit() async {
+    final url = Uri.parse('${_resolveBaseUrl()}/ai/reports/analyze');
+    try {
+      final response = await http
+          .post(url, headers: _getAuthHeaders())
+          .timeout(const Duration(seconds: 65));
+      final body = _handleResponse(response);
+      if (body != null && body is Map && body.containsKey('data')) {
+        return body['data'];
+      }
+      return body;
+    } catch (e) {
+      debugPrint("Lỗi khi gọi AI phân tích điều hành: $e");
+      rethrow;
+    }
+  }
+
+  /// 40. AI Hỏi đáp số liệu điều hành
+  static Future<Map<String, dynamic>?> chatAiExecutiveData({
+    required String question,
+    String? chatHistory,
+  }) async {
+    final url = Uri.parse('${_resolveBaseUrl()}/ai/reports/chat');
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: _getAuthHeaders(),
+            body: jsonEncode({
+              'question': question,
+              if (chatHistory != null) 'chatHistory': chatHistory,
+            }),
+          )
+          .timeout(const Duration(seconds: 65));
+      final body = _handleResponse(response);
+      if (body != null && body is Map && body.containsKey('data')) {
+        return body['data'];
+      }
+      return body;
+    } catch (e) {
+      debugPrint("Lỗi khi gọi AI hỏi đáp: $e");
+      rethrow;
+    }
+  }
 }

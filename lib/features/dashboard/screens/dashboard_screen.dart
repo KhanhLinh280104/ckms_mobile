@@ -704,7 +704,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           'name': 'Báo cáo',
           'icon': Icons.analytics_rounded,
           'color': Colors.purpleAccent,
-          'action': () => _showFeatureUnderDevelopment('Báo cáo'),
+          'action': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdminHubScreen(initialTab: 3),
+            ),
+          ),
         },
       ]);
     } else if (widget.user.role == 'MANAGER') {

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../../../services/api_service.dart';
 import '../../../core/widgets/goong_map_view_widget.dart';
 import 'user_management_screen.dart';
+import 'admin_report_screen.dart';
 
 class AdminHubScreen extends StatefulWidget {
   final int initialTab;
@@ -43,7 +44,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTab);
     _ensureUserFullName();
     _loadAllData();
   }
@@ -680,6 +681,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
             Tab(text: "NHÂN SỰ & VAI TRÒ", icon: Icon(Icons.people_alt_rounded, size: 18)),
             Tab(text: "BẾP & CỬA HÀNG", icon: Icon(Icons.storefront_rounded, size: 18)),
             Tab(text: "HÓA ĐƠN & BILLING", icon: Icon(Icons.payments_rounded, size: 18)),
+            Tab(text: "BÁO CÁO", icon: Icon(Icons.bar_chart_rounded, size: 18)),
           ],
         ),
       ),
@@ -691,6 +693,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 _buildUsersTab(),
                 _buildFacilitiesTab(),
                 _buildBillingTab(),
+                const AdminReportScreen(),
               ],
             ),
     );
@@ -709,10 +712,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 child: ChoiceChip(
                   label: const Center(child: Text("NHÂN VIÊN")),
                   selected: _userSubTab == "USERS",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _userSubTab == "USERS" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
@@ -726,10 +729,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 child: ChoiceChip(
                   label: const Center(child: Text("VAI TRÒ")),
                   selected: _userSubTab == "ROLES",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _userSubTab == "ROLES" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
@@ -1310,10 +1313,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 child: ChoiceChip(
                   label: const Center(child: Text("BẾP TRUNG TÂM (1)")),
                   selected: _facilitySubTab == "KITCHEN",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _facilitySubTab == "KITCHEN" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                   ),
@@ -1327,10 +1330,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                 child: ChoiceChip(
                   label: const Center(child: Text("DANH SÁCH CỬA HÀNG")),
                   selected: _facilitySubTab == "STORES",
-                  selectedColor: Colors.orange,
-                  backgroundColor: Colors.white10,
+                  selectedColor: Colors.amber,
+                  backgroundColor: Colors.white,
                   labelStyle: TextStyle(
-                    color: _facilitySubTab == "STORES" ? Colors.black : Colors.white70,
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                   ),
@@ -1648,10 +1651,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> with SingleTickerProvid
                   child: ChoiceChip(
                     label: Text(status == 'ALL' ? 'Tất cả' : status),
                     selected: isSelected,
-                    selectedColor: Colors.orange,
-                    backgroundColor: Colors.white10,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.black : Colors.white70,
+                    selectedColor: Colors.amber,
+                    backgroundColor: Colors.white,
+                    labelStyle: const TextStyle(
+                      color: Colors.black,
                       fontWeight: FontWeight.bold,
                       fontSize: 10,
                     ),
@@ -1926,7 +1929,13 @@ class _GoongMapAddressFieldState extends State<GoongMapAddressField> {
         TextFormField(
           controller: _controller,
           style: const TextStyle(color: Colors.white, fontSize: 14),
-          onChanged: _searchAddress,
+          onChanged: (val) {
+            _searchAddress(val);
+            final hash = val.hashCode;
+            final fallbackLat = 10.75 + (hash.abs() % 100) / 1000.0;
+            final fallbackLng = 106.65 + (hash.abs() % 200) / 1000.0;
+            widget.onLocationSelected(val, _latitude ?? fallbackLat, _longitude ?? fallbackLng);
+          },
           validator: (val) => val == null || val.trim().isEmpty ? "Vui lòng nhập địa chỉ" : null,
           decoration: InputDecoration(
             hintText: widget.hint,
@@ -2201,7 +2210,7 @@ class _AddStoreFormState extends State<AddStoreForm> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_address.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng chọn địa chỉ bằng Goong Map")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vui lòng nhập hoặc chọn địa chỉ cho cửa hàng")));
       return;
     }
 
